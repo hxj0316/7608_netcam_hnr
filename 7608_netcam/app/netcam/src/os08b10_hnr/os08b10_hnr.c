@@ -774,7 +774,7 @@ static td_s32 sample_hnr(sample_hnr_param *hnr_param)
 {
     td_s32 ret = HI_FAILURE;
     sample_vi_cfg vi_cfg;
-    sample_sns_type sns_type = hnr_param->is_wdr_mode ? OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1 : OV_OS04A10_MIPI_4M_30FPS_12BIT;
+    sample_sns_type sns_type = hnr_param->is_wdr_mode ? OV_OS08B10_MIPI_8M_30FPS_12BIT_WDR2TO1 : OV_OS08B10_MIPI_8M_30FPS_12BIT;
     const td_u32 vb_cnt = hnr_param->is_wdr_mode ? VB_HNR_WDR_CNT : VB_HNR_LINE_CNT;
     sample_print("vb_cnt = %d\n", vb_cnt);
     const hi_vi_pipe vi_pipe = hnr_param->is_wdr_mode ? 1 : 0; /* 1-long frame of wdr */

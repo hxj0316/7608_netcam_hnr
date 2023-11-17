@@ -215,7 +215,7 @@ static td_s32 sample_common_svp_vb_init(hi_pic_size *pic_type, ot_size *pic_size
     ot_pic_buf_attr pic_buf_attr;
     ot_vb_calc_cfg calc_cfg;
     ot_vi_vpss_mode_type mode_type = OT_VI_OFFLINE_VPSS_OFFLINE;
-    ot_vi_video_mode video_mode = OT_VI_VIDEO_MODE_NORM;
+    ot_vi_video_mode video_mode = OT_VI_VIDEO_MODE_ADVANCED;
 
     vb_cfg.max_pool_cnt = OT_SAMPLE_IVE_MAX_POOL_CNT;
 
@@ -646,7 +646,7 @@ static td_s32 sample_common_svp_get_pic_type_by_sns_type(sample_sns_type sns_typ
 }
 void* hnr_tmp()
 {
-    sample_hnr_execute_case(1);
+    sample_hnr_execute_case(0);
 }
 /*
  * function : Start Vi/Vpss/Venc/Vo
@@ -660,7 +660,7 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
 
     const td_s32 vpss_grp_cnt = 1;
     td_s32 ret = TD_FAILURE;
-    sample_sns_type sns_type = OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1;
+    sample_sns_type sns_type = OV_OS08B10_MIPI_8M_30FPS_12BIT;
     sample_print("sns_type = %d\n",sns_type);
     sample_svp_check_exps_return(vi_cfg == TD_NULL, ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "vi_cfg can't be null\n");
     sample_svp_check_exps_return(switch_ptr == TD_NULL, ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "switch_ptr can't be null\n");

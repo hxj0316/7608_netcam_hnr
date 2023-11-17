@@ -473,7 +473,7 @@ SOURCES += src/svp_rtsp/common/sample_common_ive.c
 SOURCES += src/svp_rtsp/common/sample_common_svp.c
 SOURCES += src/svp_rtsp/ive/sample_ive_main.c
 SOURCES += src/svp_rtsp/ive/sample/sample_ive_md.c
-SOURCES += src/os04a10_hnr/os04a10_hnr.c
+SOURCES += src/os08b10_hnr/os08b10_hnr.c
 
 
 
