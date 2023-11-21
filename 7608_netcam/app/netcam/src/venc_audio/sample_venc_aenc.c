@@ -633,7 +633,7 @@ static td_void sample_venc_set_video_param(sample_comm_venc_chn_param *chn_param
     chn_param[0].gop_attr = gop_attr;
     chn_param[0].type = payload[0];
    // chn_param[0].size = pic_size[0];
-    chn_param[0].size = PIC_2688X1520;
+    chn_param[0].size = PIC_3840X2160;
     chn_param[0].rc_mode = rc_mode[0];
     chn_param[0].profile = profile[0];
     chn_param[0].is_rcn_ref_share_buf = share_buf_en;
@@ -642,7 +642,7 @@ static td_void sample_venc_set_video_param(sample_comm_venc_chn_param *chn_param
     chn_param[1].gop_attr = gop_attr;
     chn_param[1].type = payload[1];
    // chn_param[1].size = pic_size[1];
-    chn_param[1].size = PIC_2688X1520;
+    chn_param[1].size = PIC_1080P;
     chn_param[1].rc_mode = rc_mode[1];
     chn_param[1].profile = profile[1];
     chn_param[1].is_rcn_ref_share_buf = share_buf_en;
@@ -789,7 +789,7 @@ td_void *VENC_GetVencStreamProc(td_void *p)
     while (End_Rtsp)
     {
         
-        //for (i = 0; i < CHN_NUM_MAX; i++)
+      //  for (i = 0; i < CHN_NUM_MAX; i++)
          for (i = 0; i < 1; i++)
         {
             ret = get_stream_from_one_channl(rtsp_handle[i].channel_num, rtsp_handle[i].g_rtsplive,
