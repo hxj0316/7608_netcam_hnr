@@ -415,9 +415,12 @@ CCFLAGS_USER += -I src/svp_rtsp/ive/sample
 CCFLAGS_USER += -I src/svp_rtsp/SDL2-2.26.1/install/include/SDL2
 CCFLAGS_USER += -I src/svp_rtsp/SDL2_ttf-2.0.18/install/include/SDL2/
 CCFLAGS_USER += -I src/svp_rtsp/common
+CCFLAGS_USER += -I /home/huxinjie/work/7608_netcam_hnr/7608_netcam/platform/sdk/gmp/include/npu
+CCFLAGS_USER += -I /home/huxinjie/work/7608_netcam_hnr/7608_netcam/platform/sdk/gmp/include/svp_npu
 LDFLAGS_USER += -L src/svp_rtsp/SDL2-2.26.1/install/lib
 LDFLAGS_USER += -L src/svp_rtsp/SDL2_ttf-2.0.18/install/lib
 LDFLAGS_USER += -lSDL2 -lSDL2_ttf  -Wl,--rpath-link=src/svp_rtsp/freetype-2.9/install/lib
+LDFLAGS_USER += -lascendcl  -Wl,--rpath-link=/home/huxinjie/work/7608_netcam_hnr/7608_netcam/platform/sdk/gmp/include/npu/stub
 
 LIBRARIES += rtsp
 LIBRARIES += ss_snap
@@ -453,6 +456,7 @@ LIBRARIES += ss_drc
 LIBRARIES += hnr
 LIBRARIES += pqp
 
+
 #SOURCES += src/common_venc/*.c
 SOURCES += src/common_venc/loadbmp.c
 SOURCES += src/common_venc/sample_comm_audio.c
@@ -474,9 +478,7 @@ SOURCES += src/svp_rtsp/common/sample_common_svp.c
 SOURCES += src/svp_rtsp/ive/sample_ive_main.c
 SOURCES += src/svp_rtsp/ive/sample/sample_ive_md.c
 SOURCES += src/os08b10_hnr/os08b10_hnr.c
-
-
-
+SOURCES += src/venc_acl_ok/sample_venc.c
 
 
 
@@ -556,6 +558,8 @@ CCFLAGS_USER += -I$(INSTALL_HEADER_DIR)/subsystem/xml
 CCFLAGS_USER += -I$(INSTALL_HEADER_DIR)/subsystem/wavechannel
 CCFLAGS_USER += -I$(INSTALL_HEADER_DIR)/subsystem/lvgl-5.1.1
 CCFLAGS_USER += -I$(INSTALL_HEADER_DIR)/subsystem/jpeg
+
+
 ################################################################################
 # define define user ld flags
 ################################################################################
@@ -674,6 +678,7 @@ LIBRARIES += aac_dec
 #LIBRARIES += gk_ive	xqq
 LIBRARIES += ss_md
 LIBRARIES += svp_acl
+#LIBRARIES += ascendcl
 
 LDFLAGS_USER += -lprotobuf-c
 LDFLAGS_USER += -fstack-protector-strong

@@ -648,6 +648,12 @@ void* hnr_tmp()
 {
     sample_hnr_execute_case(0);
 }
+
+void* acl_tmp()
+{
+   sample_acl();
+}
+
 /*
  * function : Start Vi/Vpss/Venc/Vo
  */
@@ -701,7 +707,11 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
    
     pthread_t hnr_thread; 
     pthread_create(&hnr_thread, 0, hnr_tmp, NULL);
-    pthread_detach(hnr_thread); 
+    pthread_detach(hnr_thread);
+
+    pthread_t acl_thread;
+    pthread_create(&acl_thread, 0, acl_tmp,NULL);
+    pthread_detach(acl_thread); 
     /* step 6: Start Venc */
   //  ret = sample_common_svp_start_venc(switch_ptr, &vo_cfg);
   //  sample_venc_vpss_chn venc_vpss_chn[2];

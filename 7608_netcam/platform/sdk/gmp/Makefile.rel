@@ -40,6 +40,11 @@ install: install-headers
 	@mkdir -p $(INSTALL_LIBRARY_DIR)
 	@cp -a lib/share/*.so $(INSTALL_LIBRARY_DIR)
 	@cp -a lib/static/*.a $(INSTALL_LIBRARY_DIR)
+	@cp -a lib/npu/*.a $(INSTALL_LIBRARY_DIR)
+	@cp -a lib/npu/*.so $(INSTALL_LIBRARY_DIR)
+	@cp -a lib/npu/stub/*.so $(INSTALL_LIBRARY_DIR)
+	@cp -a lib/svp_npu/*.a $(INSTALL_LIBRARY_DIR)
+	@cp -a lib/svp_npu/*.so $(INSTALL_LIBRARY_DIR)
 	@echo "### cp ko/* $(ROOTFS_TOP)/$(HEADER_SUBDIR)"
 	@mkdir -p $(ROOTFS_TOP)/$(HEADER_SUBDIR)
 	@cp -a ko/* $(ROOTFS_TOP)/$(HEADER_SUBDIR)
