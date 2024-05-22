@@ -686,7 +686,7 @@ hi_s32 sample_acl(hi_void)
     const char *acl_config_path = "";
     hi_u32 npu_dev_id = 0;
     aclrtRunMode run_mode;
-    const char *om_model_path = "./yolov3_framework_caffe_aipp_1_batch_1_input_int8_output_FP32.om.om";
+    const char *om_model_path = "/sharefs/yolov3_framework_caffe_aipp_1_batch_1_input_int8_output_FP32.om.om";
     hi_char path[PATH_MAX] = { 0 };
     hi_u32 output_size;
     hi_u32 buffer_size;
@@ -859,7 +859,7 @@ printf("%s:%d\n",__func__,__LINE__);
 
     memset((char *)temp_in_buf,0x0,input_size);
 
-    fp = fopen ("./car_test.yuv", "rb");
+    fp = fopen ("/sharefs/car_test.yuv", "rb");
     if (fp == HI_NULL) {
         printf("Open file failed:%s!\n", fp);
     }
