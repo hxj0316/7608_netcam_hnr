@@ -122,10 +122,11 @@ static void *af_calc(void *arg)
         }
         fv1 = sum_fv1 / wgt_sum;
         fv2 = sum_fv2 / wgt_sum;
-
+        printf("fv_1 is:%d,fv_2 is: %d\n ",fv1,fv2);
+    
         GK_U8 agc = 255 * (stIspExpInfo.a_gain - pstExpAttr.auto_attr.a_gain_range.min) / (pstExpAttr.auto_attr.a_gain_range.max - pstExpAttr.auto_attr.a_gain_range.min);
         send_af_value(uart, fv1, fv2, agc);
-        usleep(50 * 1000);
+        usleep(20 * 1000);
     }
     return NULL;
 }
