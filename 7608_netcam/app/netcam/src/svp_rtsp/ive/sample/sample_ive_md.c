@@ -197,6 +197,7 @@ static td_s32 sample_ivs_md_dma_data(td_u32 cur_idx, ot_video_frame_info *frm,
 
 int shmid_tx;
 void *ptr_tx;
+void *ptr_tx_1;
 // int shmid_rx;
 // void* ptr_rx;
 unsigned int size;
@@ -682,6 +683,7 @@ for (i = OVERLAYEX_MIN_HANDLE; i < OVERLAYEX_MIN_HANDLE + handle_num; i++) {
 
 
 unsigned char *user_addr;
+unsigned char *user_addr_1;
 
 int sockfd;
 struct sockaddr_in serverAddr;
@@ -762,6 +764,192 @@ void start_udp_server()
     pthread_detach(recv_thread);
 }
 
+/*参数含义*********************
+	pYUvBuf： YUV裸数据
+	pRgbBuf： RGB裸数据
+	height：  图像高度
+	width：   图像宽度
+**************************/
+int yuv2rgb_nv12(unsigned char* pYuvBuf, unsigned char* pRgbBuf, int height, int width)
+{
+    if(width < 1 || height < 1 || pYuvBuf == NULL || pRgbBuf == NULL)
+    {
+        return 0;
+    }
+
+    const long len = height * width;
+    
+    // Y与UV数据地址
+    unsigned char *yData = pYuvBuf;
+    unsigned char *uvData = yData + len;
+
+	// 	R、G、B数据地址
+    unsigned char *rData = pRgbBuf;
+    unsigned char *gData = rData + len;
+    unsigned char *bData = gData + len;
+
+    int R[4], G[4], B[4];
+    int Y[4], U, V;
+    int y0_Idx, y1_Idx, uIdx, vIdx;
+
+    for (int i = 0; i < height; i=i+2)
+    {
+        for (int j = 0; j < width; j=j+2)
+        {
+            y0_Idx = i * width + j;
+            y1_Idx = (i + 1) * width + j;
+
+			// Y[0]、Y[1]、Y[2]、Y[3]分别代表 Y00、Y01、Y10、Y11
+            Y[0] = yData[y0_Idx];
+            Y[1] = yData[y0_Idx + 1];
+            Y[2] = yData[y1_Idx];
+            Y[3] = yData[y1_Idx + 1];
+
+            uIdx = (i / 2) * width + j;
+            vIdx = uIdx + 1;
+
+            V = uvData[uIdx];
+            U = uvData[vIdx];
+
+            R[0] = Y[0] + 1.402 * (V - 128);
+            G[0] = Y[0] - 0.34414 * (U - 128) + 0.71414 * (V - 128);
+            B[0] = Y[0] + 1.772 * (U - 128);
+
+            R[1] = Y[1] + 1.402 * (V - 128);
+            G[1] = Y[1] - 0.34414 * (U - 128) + 0.71414 * (V - 128);
+            B[1] = Y[1] + 1.772 * (U - 128);
+
+            R[2] = Y[2] + 1.402 * (V - 128);
+            G[2] = Y[2] - 0.34414 * (U - 128) + 0.71414 * (V - 128);
+            B[2] = Y[2] + 1.772 * (U - 128);
+
+            R[3] = Y[3] + 1.402 * (V - 128);
+            G[3] = Y[3] - 0.34414 * (U - 128) + 0.71414 * (V - 128);
+            B[3] = Y[3] + 1.772 * (U - 128);
+
+			// 像素值限定在 0-255
+            for (int k = 0; k < 4; ++k)
+            {
+                if(R[k] >= 0 && R[k] <= 255)
+                {
+                    R[k] = R[k];
+                }
+                else
+                {
+                    R[k] = (R[k] < 0) ? 0 : 255;
+                }
+
+                if(G[k] >= 0 && G[k] <= 255)
+                {
+                    G[k] = G[k];
+                }
+                else
+                {
+                    G[k] = (G[k] < 0) ? 0 : 255;
+                }
+
+                if(B[k] >= 0 && B[k] <= 255)
+                {
+                    B[k] = B[k];
+                }
+                else
+                {
+                    B[k] = (B[k] < 0) ? 0 : 255;
+                }
+            }
+
+            *(rData + y0_Idx) = R[0];
+            *(gData + y0_Idx) = G[0];
+            *(bData + y0_Idx) = B[0];
+
+            *(rData + y0_Idx + 1) = R[1];
+            *(gData + y0_Idx + 1) = G[1];
+            *(bData + y0_Idx + 1) = B[1];
+
+            *(rData + y1_Idx) = R[2];
+            *(gData + y1_Idx) = G[2];
+            *(bData + y1_Idx) = B[2];
+
+            *(rData + y1_Idx + 1) = R[3];
+            *(gData + y1_Idx + 1) = G[3];
+            *(bData + y1_Idx + 1) = B[3];
+        }
+    }
+    return 1;
+}
+
+///* 
+// *描述  ：用于处理yuv2rgb颜色空间转化的线程
+// *参数  ：arg 为自定义结构video_process_s，VPSS_GRP和VPSS_CHN用于传参给HI_MPI_VPSS_GetChnFrame
+// *返回值：
+// *注意  ：HI_MPI_VPSS_GetChnFrame完必须释放，否则再次获取VB会报错        
+// */ 
+//hi_void *video_process_yuv2rgb_task()
+//{
+//    hi_s32 cnt = 0;
+//    hi_s32 s32Ret;
+//   
+//    VIDEO_FRAME_INFO_S frm[0];
+//    
+//    sleep(1);
+//    memset(&frm[0],0,sizeof(VIDEO_FRAME_INFO_S));
+//    while(cnt <= 10)
+//    {
+//        s32Ret = hi_mpi_vpss_get_chn_frame(hld.vpss_grp, vpss_chn[0], &frm[0],1000);
+//        if(s32Ret != HI_SUCCESS)
+//        {
+//            SAMPLE_PRT("%dVPSS_GetChnFrame err for %#x!\n", cnt,s32Ret);
+//            cnt++;
+//        }
+//        else 
+//        {
+//            hi_mpi_vpss_release_chn_frame(hld.vpss_grp, vpss_chn[0], &frm[0]);//不释放会导致后续vb崩溃
+//            goto DEAL;  
+//        }
+//              
+//    }
+//    goto EXIT;
+//DEAL:
+//    // deal_myself_osd(arg);
+//    deal_myself_yuv2rgb();
+//    // deal_myself(arg);
+//    
+//EXIT:
+//    pthread_exit(0);
+//}
+
+/* 
+ *描述  ：用于保存rgb图像
+ *参数  ：pstImg   IVE_IMAGE_S 结构体，定义二维广义图像信息，用于ive_csc处理后rgb24图像的保存
+          pFp 文件指针，用于保存文件
+ *返回值：无
+ *注意  ：无
+ *Bug   ：未知原因容易卡顿（更换打开文件的位置后解决）
+ */
+hi_void WriteBGRPackFile(ot_svp_img *pstImg, FILE *pFp)
+{
+    hi_u16 y;
+    hi_u8 *pU8;
+    hi_u16 height;
+    hi_u16 width;
+
+    width = pstImg->width;
+    height = pstImg->height*3;
+    pU8 = (hi_u8*)pstImg->virt_addr[0];
+    printf("width is : %d\n",width);
+    printf("height is :%d\n",height);
+    for (y = 0; y < height; y++)
+    {
+        if ( 1 != fwrite(pU8,width,1,pFp))
+        {
+            printf("write file error, y = %d\n", y);
+            return ;
+        }
+
+        pU8 += pstImg->stride[0];
+    }
+}
+
 static td_void *sample_ivs_md_proc(td_void *args)
 {
     td_s32 ret;
@@ -798,9 +986,34 @@ static td_void *sample_ivs_md_proc(td_void *args)
     struct timezone tz;
     struct tm *t;
 
+    hi_s32 s32Ret;
+    ot_svp_src_img stSrc ;
+    ot_svp_dst_img stDst ;
+    ot_ive_handle IveHandle ;
+    ot_ive_csc_ctrl stCscControl ;
+    hi_bool bInstant = HI_TRUE;
+ //   ot_video_frame_info frm[0];
+   // VIDEO_FRAME_INFO_S* pfrm[0] = &frm[0];
+   // video_process_s* pstPara;
+  // pstPara = (video_process_s*)arg;
+
+    memset(&stSrc,0,sizeof(ot_svp_src_img));
+    memset(&stDst,0,sizeof(ot_svp_dst_img));
+    memset(&stCscControl,0,sizeof(ot_ive_csc_ctrl));
+    stCscControl.mode = OT_IVE_CSC_MODE_VIDEO_BT601_YUV_TO_RGB;
+
+     #define RGB_SAVE
+    #ifdef RGB_SAVE
+    FILE *fOut;
+    FILE *fSrc;
+    hi_char *pchDstFileName = "/sharefs/RGB_test.bgr";
+    hi_char *pchSrcFileName = "/sharefs/YUV_test.yuv";
+    #endif
+
     while (g_stop_signal == TD_FALSE)
     {
         ret = ss_mpi_vpss_get_chn_frame(hld.vpss_grp, vpss_chn[1], &frm[1], OT_SAMPLE_IVE_MD_MILLIC_SEC);
+
 //	printf("==============get frame\n");
 //	gettimeofday(&tv, &tz);
 //	t = localtime(&tv.tv_sec);
@@ -812,6 +1025,67 @@ static td_void *sample_ivs_md_proc(td_void *args)
         ret = ss_mpi_vpss_get_chn_frame(hld.vpss_grp, vpss_chn[0], &frm[0], OT_SAMPLE_IVE_MD_MILLIC_SEC);
         sample_svp_check_failed_goto(ret, ext_free, SAMPLE_SVP_ERR_LEVEL_ERROR,
                                      "Error(%#x),vpss_get_chn_frame failed, VPSS_GRP(%d), VPSS_CHN(%d)!\n", ret, hld.vpss_grp, vpss_chn[0]);
+        // SAMPLE_PRT("VPSS_GetChnFrame success for %#x!\n",s32Ret);
+        /*初始化YUV输入数据结构体stSrc*/
+         stSrc.type = OT_SVP_IMG_TYPE_YUV420SP;
+         stSrc.phys_addr[0] = frm[0].video_frame.phys_addr[0];
+         stSrc.phys_addr[1] = frm[0].video_frame.phys_addr[1];
+         stSrc.phys_addr[2] = frm[0].video_frame.phys_addr[2];
+         stSrc.virt_addr[0] = frm[0].video_frame.virt_addr[0];
+         stSrc.virt_addr[1] = frm[0].video_frame.virt_addr[1];
+         stSrc.virt_addr[2] = frm[0].video_frame.virt_addr[2];
+         stSrc.stride[0] = frm[0].video_frame.stride[0];
+         stSrc.stride[1] = frm[0].video_frame.stride[1];
+         stSrc.stride[2] = frm[0].video_frame.stride[2];
+         stSrc.width = frm[0].video_frame.width;
+         stSrc.height = frm[0].video_frame.height;
+         /*初始化输出RPG数据结构体并在内存中为图像数据分配空间*/
+          printf("width is %d, height is %d\n", stSrc.width, stSrc.height);
+          printf("stSrc.stride is : %d\n", stSrc.stride[0]);
+
+         ret = ss_mpi_sys_mmz_alloc_cached(&stDst.phys_addr[0], (hi_void *)&stDst.virt_addr[0], "DstImg",
+                                         HI_NULL, stSrc.width * stSrc.height * 3);
+         if(HI_SUCCESS != ret)
+         {
+             printf("Error(%#x),HI_MPI_SYS_MmzAlloc_Cached failed!\n",ret) ;
+             ss_mpi_sys_mmz_free(stDst.phys_addr[0],(hi_void*)stDst.phys_addr) ;
+             return ret;
+         }
+         // memset(stDst.au64VirAddr[0],0,stSrc.u32Height * stSrc.au32Stride[0] * 3) ;
+         stDst.type = OT_SVP_IMG_TYPE_U8C3_PACKAGE;
+         stDst.height = stSrc.height;
+         stDst.width = stSrc.width;
+         stDst.stride[0] = (((frm[0].video_frame.width + 15) >> 4) << 4);
+        /*将YUV数据转换到RGB planar存储，地址保存在stDst结构体中*/
+         ret = ss_mpi_ive_csc(&IveHandle,&stSrc,&stDst,&stCscControl,bInstant) ;
+         if(HI_SUCCESS != ret)
+         {
+             printf("Error(%#x),HI_MPI_IVE_CSC failed!\n",ret) ;
+             // return ;
+         }
+         #ifdef RGB_SAVE
+         printf("yuv2bgr success\r\n");
+         fflush(stdout);
+         fOut = fopen(pchDstFileName,"wb+");
+         if(HI_NULL == fOut)
+         {
+             printf("Open out file %s fail\n",pchDstFileName);
+             fclose(fOut);
+             // return;
+         }
+
+         WriteBGRPackFile(&stDst, fOut);
+         fclose(fOut);
+         printf("file\r\n");
+         #endif
+         ret = ss_mpi_sys_mmz_free(stDst.phys_addr[0],(hi_void*)stDst.virt_addr);
+         if(HI_SUCCESS != ret){
+             printf("Error(%#x),HI_MPI_SYS_MmzFree failed!\n",ret);
+             ss_mpi_sys_mmz_free(stDst.phys_addr[0],(hi_void*)stDst.virt_addr);
+             // return ;
+         }
+    //     s32Ret = hi_mpi_venc_send_frame(vpss_chn[0], &frm[0],OT_SAMPLE_IVE_MD_MILLIC_SEC);
+    //     hi_mpi_vpss_release_chn_frame(hld.vpss_grp, vpss_chn[0], &frm[0]);
 
         ret = sample_ivs_md_dma_data(cur_idx, &frm[1], md_ptr, &is_first_frm);
         sample_svp_check_failed_goto(ret, base_free, SAMPLE_SVP_ERR_LEVEL_ERROR, "dma data failed, Err(%#x)\n", ret);
@@ -836,9 +1110,17 @@ static td_void *sample_ivs_md_proc(td_void *args)
 
         if (count % 5 == 0)
         {
-            user_addr = (unsigned char *)ss_mpi_sys_mmap(frm[0].video_frame.phys_addr[0], size);
-            memcpy(ptr_tx, user_addr, size);
-            ss_mpi_sys_munmap(user_addr, size);
+	   char *addr0 = ss_mpi_sys_mmap(frm[0].video_frame.phys_addr[0], size);
+   	   char *addr1 = ss_mpi_sys_mmap(frm[1].video_frame.phys_addr[1], size/2);
+           FILE *fp;
+	   fp = fopen ("/sharefs/YUV_test_P420.yuv", "wd+");
+	   fwrite(addr0, size, 1, fp);
+   	   fwrite(addr1, size/2, 1, fp );
+	   fclose(fp);
+   	   ss_mpi_sys_munmap(addr0, size);
+	   ss_mpi_sys_munmap(addr1, size/2);
+//	   printf("fwrite success!!!\n");
+//	   printf("fwrite success!!!\n");
         }
 
         // if(strlen(ptr_rx) != 0) {
@@ -946,13 +1228,9 @@ td_void sample_ive_md(td_void)
     /*
      * step 1: start vi vpss venc vo
      */
-    printf("918 918\n");
     ret = sample_common_svp_start_vi_vpss_venc_vo(&g_vi_config, &g_md_switch, &pic_type);
-    printf("hhhxxxjjj918\n");
     ot_dis_cfg dis_cfg;
-    printf("ot_dis_cfg\n");
     ss_mpi_vi_get_chn_dis_cfg(0, 0, &dis_cfg);
-    printf("ss_mpi_vi_get_chn_dis_cfg\n");
     dis_cfg.motion_level = 1;
     dis_cfg.mode = 1;
 
@@ -965,9 +1243,6 @@ td_void sample_ive_md(td_void)
     // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_md_0, SAMPLE_SVP_ERR_LEVEL_ERROR,
                             //    "Error(%#x),sample_common_svp_start_vi_vpss_venc_vo failed!\n", ret);
   
-    printf("sample_common_svp_start_vi_vpss_venc_vo 918\n");
-    printf("sample_common_svp_start_vi_vpss_venc_vo 918\n");
-
  
     pic_type = PIC_1080P;
    // pic_type = PIC_2688X1520;
@@ -998,8 +1273,7 @@ td_void sample_ive_md(td_void)
 //    pthread_detach(bitmap_update_t);  
 
     // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_md_0, SAMPLE_SVP_ERR_LEVEL_ERROR, "set thread name failed!\n");
-  //  ret = pthread_create(&g_md_thread, 0, sample_ivs_md_proc, (td_void *)&g_md_info);
-
+    ret = pthread_create(&g_md_thread, 0, sample_ivs_md_proc, (td_void *)&g_md_info);
 
 
     // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_md_0, SAMPLE_SVP_ERR_LEVEL_ERROR, "pthread_create failed!\n");

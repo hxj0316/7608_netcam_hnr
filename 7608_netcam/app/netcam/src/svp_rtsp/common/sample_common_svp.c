@@ -408,8 +408,8 @@ static td_s32 sample_common_svp_start_vpss(td_s32 vpss_grp_cnt, ot_size *pic_siz
     sample_comm_vpss_get_default_chn_attr(&vpss_chn_attr[0]);
    //  vpss_chn_attr[0].width = pic_size[0].width;
    //  vpss_chn_attr[0].height = pic_size[0].height;
-    vpss_chn_attr[0].width = 1920;
-    vpss_chn_attr[0].height = 1080;
+    vpss_chn_attr[0].width = 3840;
+    vpss_chn_attr[0].height = 2160;
     vpss_chn_attr[0].compress_mode = OT_COMPRESS_MODE_NONE;
     vpss_chn_attr[0].depth = 1;
 
