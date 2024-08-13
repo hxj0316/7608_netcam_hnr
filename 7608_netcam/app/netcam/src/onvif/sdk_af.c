@@ -125,7 +125,7 @@ static void *af_calc(void *arg)
 
         GK_U8 agc = 255 * (stIspExpInfo.a_gain - pstExpAttr.auto_attr.a_gain_range.min) / (pstExpAttr.auto_attr.a_gain_range.max - pstExpAttr.auto_attr.a_gain_range.min);
         send_af_value(uart, fv1, fv2, agc);
-        usleep(50 * 1000);
+        usleep(20 * 1000);
     }
     return NULL;
 }

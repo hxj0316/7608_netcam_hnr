@@ -30,7 +30,7 @@ hi_void sample_comm_vpss_get_default_grp_attr(hi_vpss_grp_attr *grp_attr)
     grp_attr->max_dei_width             = 0;
     grp_attr->max_dei_height            = 0;
     grp_attr->dynamic_range             = HI_DYNAMIC_RANGE_SDR8;
-    grp_attr->pixel_format              = HI_PIXEL_FORMAT_YVU_SEMIPLANAR_420;
+    grp_attr->pixel_format              = HI_PIXEL_FORMAT_YUV_SEMIPLANAR_420;
     grp_attr->dei_mode                  = HI_VPSS_DEI_MODE_OFF;
     grp_attr->buf_share_chn             = HI_VPSS_CHN0;
     grp_attr->nr_attr.nr_type           = HI_VPSS_NR_TYPE_VIDEO_NORM;
@@ -51,7 +51,7 @@ hi_void sample_comm_vpss_get_default_chn_attr(hi_vpss_chn_attr *chn_attr)
     chn_attr->chn_mode                  = HI_VPSS_CHN_MODE_USER;
     chn_attr->video_format              = HI_VIDEO_FORMAT_LINEAR;
     chn_attr->dynamic_range             = HI_DYNAMIC_RANGE_SDR8;
-    chn_attr->pixel_format              = HI_PIXEL_FORMAT_YVU_SEMIPLANAR_420;
+    chn_attr->pixel_format              = HI_PIXEL_FORMAT_YUV_SEMIPLANAR_420;
     chn_attr->compress_mode             = HI_COMPRESS_MODE_SEG;
     chn_attr->aspect_ratio.mode         = HI_ASPECT_RATIO_NONE;
     chn_attr->frame_rate.src_frame_rate = -1;

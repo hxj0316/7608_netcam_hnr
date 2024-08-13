@@ -633,7 +633,7 @@ static td_void sample_venc_set_video_param(sample_comm_venc_chn_param *chn_param
     chn_param[0].gop_attr = gop_attr;
     chn_param[0].type = payload[0];
    // chn_param[0].size = pic_size[0];
-    chn_param[0].size = PIC_3840X2160;
+    chn_param[0].size = PIC_720P;
     chn_param[0].rc_mode = rc_mode[0];
     chn_param[0].profile = profile[0];
     chn_param[0].is_rcn_ref_share_buf = share_buf_en;
