@@ -427,7 +427,7 @@ static td_s32 sample_common_svp_start_vpss(td_s32 vpss_grp_cnt, ot_size *pic_siz
     printf("vpss_chn[0]_height = %d\n",vpss_chn_attr[0].height);
     printf("vpss_chn[1]_width = %d\n",vpss_chn_attr[1].width);
     printf("vpss_chn[1]_height = %d\n",vpss_chn_attr[1].height);
-
+    printf("vpss_chn_num is :%d/n",vpss_chn_num);
     for (vpss_grp = 0; vpss_grp < vpss_grp_cnt; vpss_grp++)
     {
         ret = sample_common_vpss_start(vpss_grp, chn_enable, &vpss_grp_attr, vpss_chn_attr, OT_VPSS_MAX_CHN_NUM);
@@ -649,10 +649,10 @@ void* hnr_tmp()
     sample_hnr_execute_case(0);
 }
 
-void* acl_tmp()
-{
-   sample_acl();
-}
+//void* acl_tmp()
+//{
+//   sample_acl();
+//}
 
 /*
  * function : Start Vi/Vpss/Venc/Vo
@@ -709,9 +709,9 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
     pthread_create(&hnr_thread, 0, hnr_tmp, NULL);
     pthread_detach(hnr_thread);
 
-    pthread_t acl_thread;
-    pthread_create(&acl_thread, 0, acl_tmp,NULL);
-    pthread_detach(acl_thread); 
+//    pthread_t acl_thread;
+//    pthread_create(&acl_thread, 0, acl_tmp,NULL);
+//    pthread_detach(acl_thread); 
     /* step 6: Start Venc */
   //  ret = sample_common_svp_start_venc(switch_ptr, &vo_cfg);
   //  sample_venc_vpss_chn venc_vpss_chn[2];

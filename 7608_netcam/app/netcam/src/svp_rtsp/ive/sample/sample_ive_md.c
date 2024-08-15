@@ -834,7 +834,7 @@ static td_void *sample_ivs_md_proc(td_void *args)
     memset(&stCscControl,0,sizeof(ot_ive_csc_ctrl));
     stCscControl.mode = OT_IVE_CSC_MODE_VIDEO_BT601_YUV_TO_RGB;
 
-    #define RGB_SAVE
+//    #define RGB_SAVE
     #ifdef RGB_SAVE
     FILE *fOut;
     FILE *fSrc;
@@ -900,7 +900,7 @@ static td_void *sample_ivs_md_proc(td_void *args)
         }
 
          #ifdef RGB_SAVE
-      //   printf("yuv2bgr success\r\n");
+     //    printf("yuv2bgr success\r\n");
          fflush(stdout);
          fOut = fopen(pchDstFileName,"wb+");
          if(HI_NULL == fOut)
@@ -1053,13 +1053,9 @@ td_void sample_ive_md(td_void)
     /*
      * step 1: start vi vpss venc vo
      */
-    printf("918 918\n");
     ret = sample_common_svp_start_vi_vpss_venc_vo(&g_vi_config, &g_md_switch, &pic_type);
-    printf("hhhxxxjjj918\n");
     ot_dis_cfg dis_cfg;
-    printf("ot_dis_cfg\n");
     ss_mpi_vi_get_chn_dis_cfg(0, 0, &dis_cfg);
-    printf("ss_mpi_vi_get_chn_dis_cfg\n");
     dis_cfg.motion_level = 1;
     dis_cfg.mode = 1;
 
@@ -1072,8 +1068,6 @@ td_void sample_ive_md(td_void)
     // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_md_0, SAMPLE_SVP_ERR_LEVEL_ERROR,
                             //    "Error(%#x),sample_common_svp_start_vi_vpss_venc_vo failed!\n", ret);
   
-    printf("sample_common_svp_start_vi_vpss_venc_vo 918\n");
-    printf("sample_common_svp_start_vi_vpss_venc_vo 918\n");
 
  
     pic_type = PIC_1080P;

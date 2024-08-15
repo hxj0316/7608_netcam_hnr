@@ -633,7 +633,7 @@ static td_void sample_venc_set_video_param(sample_comm_venc_chn_param *chn_param
     chn_param[0].gop_attr = gop_attr;
     chn_param[0].type = payload[0];
    // chn_param[0].size = pic_size[0];
-    chn_param[0].size = PIC_720P;
+    chn_param[0].size = PIC_1080P;
     chn_param[0].rc_mode = rc_mode[0];
     chn_param[0].profile = profile[0];
     chn_param[0].is_rcn_ref_share_buf = share_buf_en;
@@ -838,25 +838,25 @@ static td_s32 sample_venc_normal_start_encode(ot_vpss_grp vpss_grp, sample_venc_
         sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
         goto EXIT_VENC_H265_STOP;
    }
-      /* encode h.264 */
-
-    h264_chn_param = &(chn_param[1]);
-    if ((ret = sample_comm_venc_start(venc_vpss_chn->venc_chn[1], h264_chn_param)) != TD_SUCCESS)
-    {
-        sample_print("Venc Start failed for %#x!\n", ret);
-        goto EXIT_VENC_H264_UnBind;
-    }
-
-    ret = sample_comm_vpss_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[1], venc_vpss_chn->venc_chn[1]);
-    if (ret != TD_SUCCESS)
-    {
-        sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
-        goto EXIT_VENC_H264_STOP;
-     }
+//      /* encode h.264 */
+//
+//    h264_chn_param = &(chn_param[1]);
+//    if ((ret = sample_comm_venc_start(venc_vpss_chn->venc_chn[1], h264_chn_param)) != TD_SUCCESS)
+//    {
+//        sample_print("Venc Start failed for %#x!\n", ret);
+//        goto EXIT_VENC_H264_UnBind;
+//    }
+//
+//    ret = sample_comm_vpss_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[1], venc_vpss_chn->venc_chn[1]);
+//    if (ret != TD_SUCCESS)
+//    {
+//        sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
+//        goto EXIT_VENC_H264_STOP;
+//     }
     rtsp_handle[0].g_rtsplive = create_rtsp_demo(554);
     rtsp_handle[0].channel_num = venc_vpss_chn->venc_chn[0];
-    rtsp_handle[1].g_rtsplive = create_rtsp_demo(8554);
-    rtsp_handle[1].channel_num = venc_vpss_chn->venc_chn[1];
+//    rtsp_handle[1].g_rtsplive = create_rtsp_demo(8554);
+//    rtsp_handle[1].channel_num = venc_vpss_chn->venc_chn[1];
     char rtsp_name[20];
     for (i = 0; i < CHN_NUM_MAX; i++)
     {
