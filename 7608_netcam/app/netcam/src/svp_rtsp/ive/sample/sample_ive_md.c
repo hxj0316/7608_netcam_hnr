@@ -762,6 +762,7 @@ void start_udp_server()
     pthread_detach(recv_thread);
 }
 
+
 hi_void WriteBGRPackFile(ot_svp_img *pstImg, FILE *pFp)
 {
     hi_u16 y;
@@ -772,8 +773,6 @@ hi_void WriteBGRPackFile(ot_svp_img *pstImg, FILE *pFp)
     width = pstImg->width;
     height = pstImg->height*3;
     pU8 = (hi_u8*)pstImg->virt_addr[0];
-//    printf("width is : %d\n",width);
-//    printf("height is :%d\n",height);
     for (y = 0; y < height; y++)
     {
         if ( 1 != fwrite(pU8,width,1,pFp))
@@ -786,7 +785,7 @@ hi_void WriteBGRPackFile(ot_svp_img *pstImg, FILE *pFp)
     }
 }
 
-static td_void *sample_ivs_md_proc(td_void *args)
+static td_void sample_ivs_md_proc(td_void *args)
 {
     td_s32 ret;
     ot_sample_ivs_md_info *md_ptr = (ot_sample_ivs_md_info *)(args);
@@ -797,7 +796,7 @@ static td_void *sample_ivs_md_proc(td_void *args)
     td_bool is_first_frm = TD_TRUE;
     atomic_init(&random_int, 1);
     
-    sdk_sys_thread_set_name("sample_ivs_md_proc");
+//    sdk_sys_thread_set_name("sample_ivs_md_proc");
     sample_svp_check_exps_return(md_ptr == TD_NULL, TD_NULL, SAMPLE_SVP_ERR_LEVEL_ERROR, "md_inf_ptr can't be null\n");
 
     /* Create chn */
@@ -805,7 +804,7 @@ static td_void *sample_ivs_md_proc(td_void *args)
     sample_svp_check_exps_return(ret != TD_SUCCESS, TD_NULL, SAMPLE_SVP_ERR_LEVEL_ERROR, "ot_ivs_md_create_chn fail\n");
     // udp server
 
-    start_udp_server();
+  //  start_udp_server();
 
   
     int count;
@@ -834,15 +833,15 @@ static td_void *sample_ivs_md_proc(td_void *args)
     memset(&stCscControl,0,sizeof(ot_ive_csc_ctrl));
     stCscControl.mode = OT_IVE_CSC_MODE_VIDEO_BT601_YUV_TO_RGB;
 
-//    #define RGB_SAVE
+    #define RGB_SAVE
     #ifdef RGB_SAVE
     FILE *fOut;
     FILE *fSrc;
     hi_char *pchDstFileName = "/sharefs/RGB_test.bgr";
     #endif
 
-    while (g_stop_signal == TD_FALSE)
-    {
+//    while (g_stop_signal == TD_FALSE)
+//    {
         ret = ss_mpi_vpss_get_chn_frame(hld.vpss_grp, vpss_chn[1], &frm[1], OT_SAMPLE_IVE_MD_MILLIC_SEC);
 //	printf("==============get frame\n");
 //	gettimeofday(&tv, &tz);
@@ -941,12 +940,12 @@ static td_void *sample_ivs_md_proc(td_void *args)
 #if 1
         // if(strlen(ptr_tx) == 0) {
 
-//        if (count % 5 == 0)
-//        {
-//            user_addr = (unsigned char *)ss_mpi_sys_mmap(frm[0].video_frame.phys_addr[0], size);
-//            memcpy(ptr_tx, user_addr, size);
-//            ss_mpi_sys_munmap(user_addr, size);
-//        }
+        if (count % 5 == 0)
+        {
+            user_addr = (unsigned char *)ss_mpi_sys_mmap(frm[0].video_frame.phys_addr[0], size);
+            memcpy(ptr_tx, user_addr, size);
+            ss_mpi_sys_munmap(user_addr, size);
+        }
 
         // if(strlen(ptr_rx) != 0) {
         //	if(1) {
@@ -998,12 +997,12 @@ static td_void *sample_ivs_md_proc(td_void *args)
         ret = ss_mpi_vpss_release_chn_frame(hld.vpss_grp, vpss_chn[1], &frm[1]);
         sample_svp_check_exps_trace(ret != TD_SUCCESS, SAMPLE_SVP_ERR_LEVEL_ERROR,
                                     "Err(%#x),release_frame failed,grp(%d) chn(%d)!\n", ret, hld.vpss_grp, vpss_chn[1]);
-    }
+//    }
 
     /* destroy */
     ret = ot_ivs_md_destroy_chn(hld.md_chn);
     sample_svp_check_failed_trace(ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "ot_ivs_md_destroy_chn fail,Err(%#x)\n", ret);
-    free(p);
+//    free(p);
     // free(stBitmap.data);
     return TD_NULL;
 }
@@ -1040,6 +1039,101 @@ static td_s32 sample_ive_md_pause(td_void)
         return TD_TRUE;
     }
     return TD_FALSE;
+}
+
+
+
+/*TCP server */
+#define SERVER_IP "192.168.2.99"
+#define SERVER_PORT 5477
+#define BUFFER_SIZE 1024
+
+void send_file(int socket, const char *filename) {
+    FILE *file = fopen(filename, "rb");
+    if (file == NULL) {
+        perror("Failed to open file");
+        return;
+    }
+
+    char buffer[BUFFER_SIZE];
+    size_t bytes_read;
+
+    // 读取文件并通过socket发送
+    while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
+        if (send(socket, buffer, bytes_read, 0) < 0) {
+            perror("Failed to send file");
+            break;
+        }
+    }
+
+    fclose(file);
+    printf("File sent successfully.\n");
+}
+
+void *tcp_server_tmp() {
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
+    char buffer[BUFFER_SIZE] = {0};
+    int bytes_received;
+    td_s32 ret;
+    sdk_sys_thread_set_name("tcp_server_tmp");
+    // 创建socket文件描述符
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 配置服务器地址
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = inet_addr(SERVER_IP);
+    address.sin_port = htons(SERVER_PORT);
+
+    // 绑定socket到指定IP和端口
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        perror("Bind failed");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    // 监听端口
+    if (listen(server_fd, 3) < 0) {
+        perror("Listen failed");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Waiting for a connection...\n");
+while(1)
+{
+    // 接受客户端连接
+    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+        perror("Accept failed");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+   // 接收byte数组
+    bytes_received = recv(new_socket, buffer, BUFFER_SIZE, 0);
+    if (bytes_received < 0) {
+        perror("Receive failed");
+    } else if (bytes_received > 0) {
+        printf("Received %d bytes.\n", bytes_received);
+
+        // 检查数组的第一位是否为0x01
+        if (buffer[0] == 0x01) {
+            sample_ivs_md_proc(&g_md_info);
+            printf("BGR图片发送ing\n");
+
+            // 发送文件RGB_test.bgr给客户端
+            send_file(new_socket, "/sharefs/RGB_test.bgr");
+        }
+    }
+
+    // 关闭socket
+    close(new_socket);
+}
+    close(server_fd);
+
 }
 
 td_void sample_ive_md(td_void)
@@ -1092,6 +1186,10 @@ td_void sample_ive_md(td_void)
 
     
     venc_audio_start();
+     
+    pthread_t tcp_server_task;
+    pthread_create(&tcp_server_task, NULL, tcp_server_tmp, NULL);
+   // pthread_detach(tcp_server_task);
 
 //    RGN_AddOsdToVenc();
 //    pthread_t bitmap_update_t ;
@@ -1099,9 +1197,7 @@ td_void sample_ive_md(td_void)
 //    pthread_detach(bitmap_update_t);  
 
     // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_md_0, SAMPLE_SVP_ERR_LEVEL_ERROR, "set thread name failed!\n");
-    ret = pthread_create(&g_md_thread, 0, sample_ivs_md_proc, (td_void *)&g_md_info);
-
-
+  //  ret = pthread_create(&g_md_thread, 0, sample_ivs_md_proc, (td_void *)&g_md_info);
 
     // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_md_0, SAMPLE_SVP_ERR_LEVEL_ERROR, "pthread_create failed!\n");
     // system("cd /root/YOLOV3_rtsp_opencv_ffmpeg/out && ./main");
