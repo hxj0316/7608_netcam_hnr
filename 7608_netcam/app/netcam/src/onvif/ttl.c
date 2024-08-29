@@ -473,7 +473,7 @@ void *begin_485()
     }
 }
 
-void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc)
+void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc,int uart_mcu_send)
 {
     unsigned char tx_buf_af1[16];
     uint32_t sum = 0;
@@ -488,7 +488,7 @@ void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc)
     *(tx_buf_af1 + 8) = (focus1 & 0xFF00) >> 8;
     *(tx_buf_af1 + 9) = focus1 & 0x00FF;
     *(tx_buf_af1 + 10) = agc & 0x00FF;
-    *(tx_buf_af1 + 11) = 0x00;
+    *(tx_buf_af1 + 11) = uart_mcu_send;
     *(tx_buf_af1 + 12) = 0x02;
     *(tx_buf_af1 + 13) = 0x00;
     *(tx_buf_af1 + 14) = 0x00;

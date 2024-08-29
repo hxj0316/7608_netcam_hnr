@@ -5,7 +5,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+extern int uart_mcu_send;
 int sdk_af_lens_init(af_lens_cb cb);
 int sdk_af_lens_exit();
 #ifdef __cplusplus

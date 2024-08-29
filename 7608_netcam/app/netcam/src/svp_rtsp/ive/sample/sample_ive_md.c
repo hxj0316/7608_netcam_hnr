@@ -197,9 +197,10 @@ static td_s32 sample_ivs_md_dma_data(td_u32 cur_idx, ot_video_frame_info *frm,
 
 int shmid_tx;
 void *ptr_tx;
-// int shmid_rx;
-// void* ptr_rx;
+int shmid_flag;
+unsigned char *ptr_flag;
 unsigned int size;
+char shared_memory[16] = {0xAA,0x55,0xAA,0x55};
 Total_result *p;
 
 ot_bmp stBitmap;
@@ -682,7 +683,6 @@ for (i = OVERLAYEX_MIN_HANDLE; i < OVERLAYEX_MIN_HANDLE + handle_num; i++) {
 
 
 unsigned char *user_addr;
-
 int sockfd;
 struct sockaddr_in serverAddr;
 char *buf;
@@ -811,11 +811,15 @@ static td_void sample_ivs_md_proc(td_void *args)
     size = 24883200;
     ptr_tx = malloc(size);
     user_addr = malloc(size);
+    ptr_flag = malloc(16);
     // ptr_rx = malloc(512);
+    
+    shmid_flag = shmget(87, 16, IPC_CREAT|0664);
+    ptr_flag = shmat(shmid_flag, NULL, 0);
     shmid_tx = shmget(100, size, IPC_CREAT | 0664);
     ptr_tx = shmat(shmid_tx, NULL, 0);
-    // shmid_rx = shmget(111, 256, IPC_CREAT|0664);
-    // ptr_rx = shmat(shmid_rx, NULL, 0);
+//    shmid_flag = shmget(87, 16, IPC_CREAT|0664);
+//    ptr_flag = shmat(shmid_flag, NULL, 0);
 
     struct timeval tv;
     struct timezone tz;
@@ -890,13 +894,17 @@ static td_void sample_ivs_md_proc(td_void *args)
              printf("Error(%#x),HI_MPI_IVE_CSC failed!\n",ret) ;
              // return ;
          }
-	 count++;
-        if (count % 5 == 0)
-        {
+//	 count++;
+//        if (count % 5 == 0)
+//        {
             user_addr = (unsigned char *)ss_mpi_sys_mmap_cached(stDst.phys_addr[0], size);
             memcpy(ptr_tx, user_addr, size);
             ss_mpi_sys_munmap(user_addr, size);
-        }
+	    printf("shared_memory is :%x,%x,%x,%x\n",shared_memory[0],shared_memory[1],shared_memory[2],shared_memory[3]);
+	    memcpy(ptr_flag,shared_memory,4);
+
+	    printf("ptr_flag is :%x,%x,%x,%x\n",ptr_flag[0],ptr_flag[1],ptr_flag[2],ptr_flag[3]);
+//        }
 
          #ifdef RGB_SAVE
      //    printf("yuv2bgr success\r\n");
@@ -940,12 +948,12 @@ static td_void sample_ivs_md_proc(td_void *args)
 #if 1
         // if(strlen(ptr_tx) == 0) {
 
-        if (count % 5 == 0)
-        {
-            user_addr = (unsigned char *)ss_mpi_sys_mmap(frm[0].video_frame.phys_addr[0], size);
-            memcpy(ptr_tx, user_addr, size);
-            ss_mpi_sys_munmap(user_addr, size);
-        }
+//        if (count % 5 == 0)
+//        {
+//            user_addr = (unsigned char *)ss_mpi_sys_mmap(frm[0].video_frame.phys_addr[0], size);
+//            memcpy(ptr_tx, user_addr, size);
+//            ss_mpi_sys_munmap(user_addr, size);
+//        }
 
         // if(strlen(ptr_rx) != 0) {
         //	if(1) {
@@ -1047,6 +1055,7 @@ static td_s32 sample_ive_md_pause(td_void)
 #define SERVER_IP "192.168.2.99"
 #define SERVER_PORT 5477
 #define BUFFER_SIZE 1024
+int uart_mcu_send;
 
 void send_file(int socket, const char *filename) {
     FILE *file = fopen(filename, "rb");
@@ -1057,7 +1066,7 @@ void send_file(int socket, const char *filename) {
 
     char buffer[BUFFER_SIZE];
     size_t bytes_read;
-
+    char *msg =" \0"; 
     // 读取文件并通过socket发送
     while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
         if (send(socket, buffer, bytes_read, 0) < 0) {
@@ -1065,76 +1074,247 @@ void send_file(int socket, const char *filename) {
             break;
         }
     }
-
+    send(socket,msg,strlen(msg),0);
     fclose(file);
     printf("File sent successfully.\n");
 }
 
-void *tcp_server_tmp() {
+void *tcp_server_tmp(){
     int server_fd, new_socket;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
-    char buffer[BUFFER_SIZE] = {0};
-    int bytes_received;
-    td_s32 ret;
-    sdk_sys_thread_set_name("tcp_server_tmp");
-    // 创建socket文件描述符
+    unsigned char buffer[BUFFER_SIZE];
+
+    // 创建 socket 文件描述符
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("Socket failed");
+        perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
 
-    // 配置服务器地址
+    // 绑定 IP 和端口
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = inet_addr(SERVER_IP);
     address.sin_port = htons(SERVER_PORT);
 
-    // 绑定socket到指定IP和端口
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         perror("Bind failed");
         close(server_fd);
         exit(EXIT_FAILURE);
     }
 
-    // 监听端口
+    // 监听连接请求
     if (listen(server_fd, 3) < 0) {
         perror("Listen failed");
         close(server_fd);
         exit(EXIT_FAILURE);
     }
 
-    printf("Waiting for a connection...\n");
-while(1)
-{
-    // 接受客户端连接
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
-        perror("Accept failed");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
-   // 接收byte数组
-    bytes_received = recv(new_socket, buffer, BUFFER_SIZE, 0);
-    if (bytes_received < 0) {
-        perror("Receive failed");
-    } else if (bytes_received > 0) {
-        printf("Received %d bytes.\n", bytes_received);
+    printf("Server listening on %s:%d\n", SERVER_IP, SERVER_PORT);
+   
+    while (1) {
+        // 接受客户端连接
+        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
+            perror("Accept failed");
+            close(server_fd);
+            exit(EXIT_FAILURE);
+        }
 
-        // 检查数组的第一位是否为0x01
-        if (buffer[0] == 0x01) {
-            sample_ivs_md_proc(&g_md_info);
-            printf("BGR图片发送ing\n");
+        printf("Connection accepted from %s:%d\n", inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
-            // 发送文件RGB_test.bgr给客户端
-            send_file(new_socket, "/sharefs/RGB_test.bgr");
+        // 处理客户端请求
+        while (1) {
+            ssize_t bytes_received = recv(new_socket, buffer, BUFFER_SIZE, 0);
+
+            if (bytes_received == 0) {
+                printf("Client disconnected\n");
+                close(new_socket);
+                break;
+            } else if (bytes_received < 0) {
+                perror("Receive failed");
+                close(new_socket);
+                break;
+            } else if (bytes_received > 0) {
+                printf("Received %d bytes.\n", bytes_received);
+
+                //判断数组起始字符
+                if (buffer[0] == 0xef) {
+                    //判断数组第二位
+                    if (buffer[1] == 0x01) {
+                        sample_ivs_md_proc(&g_md_info);//启动原图抓拍和yuv2rgb、rgb图像保存
+                        printf("RGB_file sending\n");
+                        // 发送文件RGB_test.bgr给客户端
+                        send_file(new_socket, "/sharefs/RGB_test.bgr");
+                    }
+                    //判断数组第三位
+                    if (buffer[2] == 0x01) {
+                        uart_mcu_send = 0x01;
+                        printf("focus start!\n");
+                    } else if (buffer[2] == 0x00) {
+                        uart_mcu_send = 0x00;
+                        printf("focus stop!\n");
+                    }
+                    //判断数组第四位
+                    if (buffer[3] == 0x01) {
+                        pelco_set_zoom_tele();
+                        printf("zoom tele!\n");
+                    } else if (buffer[3] == 0x02) {
+                        pelco_set_zoom_wide();
+                        printf("zoom wide!\n");
+                    }
+		    else if (buffer[3] == 0x00) {
+                        pelco_set_stop();
+		        printf("zoom stop!\n");
+                    }
+                }
+            }
         }
     }
 
-    // 关闭socket
-    close(new_socket);
-}
+    // 关闭服务器
     close(server_fd);
-
 }
+
+//    while (1) {
+//    ssize_t bytes_received = recv(new_socket, buffer, BUFFER_SIZE, 0);
+//   // 接收byte数组
+//        if (bytes_received == 0) {
+//          printf("Client disconnected\n");
+//          close(new_socket);
+//          break;
+//      } else if (bytes_received < 0) {
+//          perror("Receive failed");
+//          close(new_socket);
+//          break; 
+//      }	else if (bytes_received > 0) {
+//        printf("Received %d bytes.\n", bytes_received);
+//
+//        // 检查数组的第二位是否为0x01
+//        if (buffer[0] == 0xef && buffer[1]==0x01) {
+//            sample_ivs_md_proc(&g_md_info);
+//            printf("RGB_file sending\n");
+//
+//            // 发送文件RGB_test.bgr给客户端
+//            send_file(new_socket, "/sharefs/RGB_test.bgr");
+//      }
+//      // 检查数组第三位是否为0x01
+//       if (buffer[0] == 0xef && buffer[2] == 0x01) {
+//        uart_mcu_send = 0x01;
+//        printf("focus start!!!\n");
+//       }
+//       if (buffer[0] == 0xef && buffer[2] == 0x00){
+//        uart_mcu_send = 0x00;
+//       }
+//      // 检查数组第四位
+//      if (buffer[0] == 0xef && buffer[3] == 0x01) {
+//     	 pelco_set_zoom_tele();
+//	 printf("zoom tele!\n");
+//      }
+//      if (buffer[0] == 0xef && buffer[3] == 0x02){
+//     	 pelco_set_zoom_wide();
+//	 printf("zoom wide!\n");
+//      }
+//      if (buffer[0] == 0xef && buffer[3] == 0x00)
+//      {
+//         pelco_set_stop();
+//	 printf("zoom stop!\n");
+//      }
+//    }
+//    
+//    }
+// }
+//    // 关闭服务器
+//    close(server_fd);
+//}
+	
+//UDP server
+//#define SERVER_IP "192.168.2.99"
+//#define SERVER_PORT 5477
+//#define BUFFER_SIZE 1024
+//int uart_mcu_send; 
+//
+//void send_file(int socket, struct sockaddr_in *client_addr, socklen_t client_addr_len, const char *filename) {
+//    FILE *file = fopen(filename, "rb");
+//    if (file == NULL) {
+//        perror("Failed to open file");
+//        return;
+//    }
+//
+//    char buffer[BUFFER_SIZE];
+//    size_t bytes_read;
+//
+//    // 读取文件并通过socket发送
+//    while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
+//        if (sendto(socket, buffer, bytes_read, 0, (struct sockaddr *)client_addr, client_addr_len) < 0) {
+//            perror("Failed to send file");
+//            break;
+//        }
+//    }
+//
+//    fclose(file);
+//    printf("File sent successfully.\n");
+//}
+//
+//void *tcp_server_tmp() {
+//    int sockfd;
+//    struct sockaddr_in server_addr, client_addr;
+//    socklen_t client_addr_len = sizeof(client_addr);
+//    char buffer[BUFFER_SIZE];
+//    int bytes_received;
+//
+//    // 创建socket
+//    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+//        perror("Socket creation failed");
+//        exit(EXIT_FAILURE);
+//    }
+//
+//    // 配置服务器地址
+//    memset(&server_addr, 0, sizeof(server_addr));
+//    server_addr.sin_family = AF_INET;
+//    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
+//    server_addr.sin_port = htons(SERVER_PORT);
+//
+//    // 绑定socket到指定IP和端口
+//    if (bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+//        perror("Bind failed");
+//        close(sockfd);
+//        exit(EXIT_FAILURE);
+//    }
+//
+//    printf("Server is listening on %s:%d\n", SERVER_IP, SERVER_PORT);
+//
+//    while (1) {
+//        printf("Waiting for a message...\n");
+//
+//        // 接收byte数组
+//        bytes_received = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &client_addr_len);
+//        if (bytes_received < 0) {
+//            perror("Receive failed");
+//            continue;
+//        }
+//
+//        printf("Received %d bytes.\n", bytes_received);
+//        // 检查数组的第二位是否为0x01
+//        if (buffer[0] == 0xef && buffer[1]==0x01) {
+//            sample_ivs_md_proc(&g_md_info);
+//            printf("RGB_file sending\n");
+//
+//            // 发送文件RGB_test.bgr给客户端
+//            send_file(sockfd, &client_addr, client_addr_len, "/sharefs/RGB_test.bgr");
+//      }
+//      // 检查数组第三位是否为0x01
+//       if (buffer[0] == 0xef && buffer[2] == 0x01) {
+//        uart_mcu_send = 0x01;
+//        printf("focus start!!!");
+//       }
+//       else{
+//        uart_mcu_send = 0x00;}
+//    }
+//
+//
+//    // 关闭socket
+//    close(sockfd);
+//
+//}
 
 td_void sample_ive_md(td_void)
 {
@@ -1189,7 +1369,7 @@ td_void sample_ive_md(td_void)
      
     pthread_t tcp_server_task;
     pthread_create(&tcp_server_task, NULL, tcp_server_tmp, NULL);
-   // pthread_detach(tcp_server_task);
+    pthread_detach(tcp_server_task);
 
 //    RGN_AddOsdToVenc();
 //    pthread_t bitmap_update_t ;

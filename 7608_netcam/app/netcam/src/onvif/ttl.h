@@ -20,6 +20,7 @@ void check_data(unsigned char* rx_buf);
 void *begin_485();
 uint32_t pelco_set_preset(unsigned char num);
 uint32_t pelco_call_preset(unsigned char num);
+extern int uart_mcu_send;
 //uint32_t pelco_set_stop();
 //uint32_t pelco_set_up(unsigned char speed);
 //uint32_t pelco_set_down(unsigned char speed);
