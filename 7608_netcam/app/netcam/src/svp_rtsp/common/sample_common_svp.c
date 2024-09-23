@@ -705,9 +705,9 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
     // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_4, SAMPLE_SVP_ERR_LEVEL_ERROR,
     //                            "Error(%#x),sample_common_svp_set_vi_frame failed!\n", ret);
    
-    pthread_t hnr_thread; 
-    pthread_create(&hnr_thread, 0, hnr_tmp, NULL);
-    pthread_detach(hnr_thread);
+//    pthread_t hnr_thread; 
+//    pthread_create(&hnr_thread, 0, hnr_tmp, NULL);
+//    pthread_detach(hnr_thread);
 
 //    pthread_t acl_thread;
 //    pthread_create(&acl_thread, 0, acl_tmp,NULL);

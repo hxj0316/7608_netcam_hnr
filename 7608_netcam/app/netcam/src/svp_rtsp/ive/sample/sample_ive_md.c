@@ -1135,7 +1135,10 @@ void *tcp_server_tmp(){
                 break;
             } else if (bytes_received > 0) {
                 printf("Received %d bytes.\n", bytes_received);
-
+	      for (int i = 0; i < bytes_received; i++) {
+                printf("%02x ", (unsigned char)buffer[i]); // 打印为十六进制格式
+            }
+               printf("\n");
                 //判断数组起始字符
                 if (buffer[0] == 0xef) {
                     //判断数组第二位
@@ -1161,10 +1164,24 @@ void *tcp_server_tmp(){
                         pelco_set_zoom_wide();
                         printf("zoom wide!\n");
                     }
-		    else if (buffer[3] == 0x00) {
+		    else {
                         pelco_set_stop();
 		        printf("zoom stop!\n");
                     }
+
+                   if (buffer[4] == 0x01) {
+                        pelco_set_focus_near();
+                        printf("focus_near!\n");
+                    }
+                     else if (buffer[4] == 0x02) {
+                        pelco_set_focus_far();
+                        printf("focus_far!\n");
+                  }
+                    else {
+                       pelco_set_stop();
+                       printf("focus_manual stop!\n");
+                    }
+
                 }
             }
         }
