@@ -837,7 +837,7 @@ static td_void sample_ivs_md_proc(td_void *args)
     memset(&stCscControl,0,sizeof(ot_ive_csc_ctrl));
     stCscControl.mode = OT_IVE_CSC_MODE_VIDEO_BT601_YUV_TO_RGB;
 
-    #define RGB_SAVE
+//    #define RGB_SAVE
     #ifdef RGB_SAVE
     FILE *fOut;
     FILE *fSrc;
@@ -897,10 +897,32 @@ static td_void sample_ivs_md_proc(td_void *args)
 //	 count++;
 //        if (count % 5 == 0)
 //        {
-            user_addr = (unsigned char *)ss_mpi_sys_mmap_cached(stDst.phys_addr[0], size);
-            memcpy(ptr_tx, user_addr, size);
-            ss_mpi_sys_munmap(user_addr, size);
-	    printf("shared_memory is :%x,%x,%x,%x\n",shared_memory[0],shared_memory[1],shared_memory[2],shared_memory[3]);
+            FILE *file = fopen("/sharefs/RGB_test.bgr", "rb");
+            if (!file) 
+	    {
+              perror("打开文件失败");
+              free(user_addr);
+              return 1;
+	    }
+         // 读取文件内容
+        size_t bytesRead = fread(user_addr, 1, size, file);
+    	if (bytesRead != 24883200) 
+	{
+       	    perror("读取文件失败");
+       	    free(user_addr);
+            fclose(file);
+            return 1;
+        }
+       memcpy(ptr_tx, user_addr, size);
+   	 // 关闭文件
+    	fclose(file);
+
+    	 // 释放内存
+           free(user_addr);
+//            user_addr = (unsigned char *)ss_mpi_sys_mmap_cached(stDst.phys_addr[0], size);
+//            memcpy(ptr_tx, user_addr, size);
+//            ss_mpi_sys_munmap(user_addr, size);
+//	      printf("shared_memory is :%x,%x,%x,%x\n",shared_memory[0],shared_memory[1],shared_memory[2],shared_memory[3]);
 	    memcpy(ptr_flag,shared_memory,4);
 
 	    printf("ptr_flag is :%x,%x,%x,%x\n",ptr_flag[0],ptr_flag[1],ptr_flag[2],ptr_flag[3]);
@@ -917,7 +939,7 @@ static td_void sample_ivs_md_proc(td_void *args)
              // return;
          }
 
-         WriteBGRPackFile(&stDst, fOut);
+        // WriteBGRPackFile(&stDst, fOut);
          fclose(fOut);
         // printf("file\r\n");
          #endif
