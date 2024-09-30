@@ -196,9 +196,7 @@ static td_s32 sample_ivs_md_dma_data(td_u32 cur_idx, ot_video_frame_info *frm,
 }
 
 int shmid_tx;
-void *ptr_tx;
 int shmid_flag;
-unsigned char *ptr_flag;
 unsigned int size;
 char shared_memory[16] = {0xAA,0x55,0xAA,0x55};
 Total_result *p;
@@ -785,6 +783,22 @@ hi_void WriteBGRPackFile(ot_svp_img *pstImg, FILE *pFp)
     }
 }
 
+void *ptr_tx;
+unsigned char *ptr_flag;
+
+void memory_tmp()
+{
+    size = 24883200;
+    ptr_tx = malloc(size);
+    ptr_flag = malloc(16);
+    // ptr_rx = malloc(512);
+
+    shmid_flag = shmget(87, 16, IPC_CREAT|0664);
+    ptr_flag = shmat(shmid_flag, NULL, 0);
+    shmid_tx = shmget(100, size, IPC_CREAT | 0664);
+    ptr_tx = shmat(shmid_tx, NULL, 0);
+}
+
 static td_void sample_ivs_md_proc(td_void *args)
 {
     td_s32 ret;
@@ -809,15 +823,15 @@ static td_void sample_ivs_md_proc(td_void *args)
   
     int count;
     size = 24883200;
-    ptr_tx = malloc(size);
-    user_addr = malloc(size);
-    ptr_flag = malloc(16);
+//    ptr_tx = malloc(size);
+      user_addr = malloc(size);
+//    ptr_flag = malloc(16);
     // ptr_rx = malloc(512);
     
-    shmid_flag = shmget(87, 16, IPC_CREAT|0664);
-    ptr_flag = shmat(shmid_flag, NULL, 0);
-    shmid_tx = shmget(100, size, IPC_CREAT | 0664);
-    ptr_tx = shmat(shmid_tx, NULL, 0);
+//    shmid_flag = shmget(87, 16, IPC_CREAT|0664);
+//    ptr_flag = shmat(shmid_flag, NULL, 0);
+//    shmid_tx = shmget(100, size, IPC_CREAT | 0664);
+//    ptr_tx = shmat(shmid_tx, NULL, 0);
 //    shmid_flag = shmget(87, 16, IPC_CREAT|0664);
 //    ptr_flag = shmat(shmid_flag, NULL, 0);
 
@@ -925,7 +939,7 @@ static td_void sample_ivs_md_proc(td_void *args)
 //	      printf("shared_memory is :%x,%x,%x,%x\n",shared_memory[0],shared_memory[1],shared_memory[2],shared_memory[3]);
 	    memcpy(ptr_flag,shared_memory,4);
 
-	    printf("ptr_flag is :%x,%x,%x,%x\n",ptr_flag[0],ptr_flag[1],ptr_flag[2],ptr_flag[3]);
+//	    printf("ptr_flag is :%x,%x,%x,%x\n",ptr_flag[0],ptr_flag[1],ptr_flag[2],ptr_flag[3]);
 //        }
 
          #ifdef RGB_SAVE
@@ -1405,7 +1419,9 @@ td_void sample_ive_md(td_void)
 
     
     venc_audio_start();
-     
+    
+    memory_tmp();
+
     pthread_t tcp_server_task;
     pthread_create(&tcp_server_task, NULL, tcp_server_tmp, NULL);
     pthread_detach(tcp_server_task);
