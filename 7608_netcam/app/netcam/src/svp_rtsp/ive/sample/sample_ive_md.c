@@ -799,6 +799,12 @@ void memory_tmp()
     ptr_tx = shmat(shmid_tx, NULL, 0);
 }
 
+void code_flag()
+{
+            printf("shared_memory is :%x,%x,%x,%x,%x,%x,%x\n",shared_memory[0],shared_memory[1],shared_memory[2],shared_memory[3],shared_memory[4],shared_memory[5],shared_memory[6]);
+
+}
+
 static td_void sample_ivs_md_proc(td_void *args)
 {
     td_s32 ret;
@@ -937,7 +943,7 @@ static td_void sample_ivs_md_proc(td_void *args)
 //            memcpy(ptr_tx, user_addr, size);
 //            ss_mpi_sys_munmap(user_addr, size);
 //	      printf("shared_memory is :%x,%x,%x,%x\n",shared_memory[0],shared_memory[1],shared_memory[2],shared_memory[3]);
-	    memcpy(ptr_flag,shared_memory,4);
+	    memcpy(ptr_flag,shared_memory,7);
 
 //	    printf("ptr_flag is :%x,%x,%x,%x\n",ptr_flag[0],ptr_flag[1],ptr_flag[2],ptr_flag[3]);
 //        }
@@ -1219,6 +1225,36 @@ void *tcp_server_tmp(){
                     }
 
                 }
+
+              else if(buffer[0] == 0xAF){
+                 //开启二维码识别
+                  if (buffer[1] == 0x01){
+                       shared_memory[4] = 0x01;
+                       code_flag();
+                  }
+                  else {
+                       shared_memory[4] = 0x00;
+                       code_flag();
+                  }
+                  //开启一维码识别
+                  if (buffer[2] == 0x01){
+                       shared_memory[5] = 0x01;
+                       code_flag();
+                  }
+                  else {
+                       shared_memory[5] = 0x00;
+                       code_flag();
+                  }
+                  //开启字符识别
+                  if (buffer[3] == 0x01){
+                       shared_memory[6] = 0x01;
+                       code_flag();
+                  }
+                  else {
+                       shared_memory[6] = 0x00;
+                       code_flag();
+                  }
+               }
             }
         }
     }
