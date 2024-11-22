@@ -196,7 +196,8 @@ static td_s32 sample_ivs_md_dma_data(td_u32 cur_idx, ot_video_frame_info *frm,
 }
 
 int shmid_tx;
-void *ptr_tx;
+unsigned char *user_addr;
+unsigned char *ptr_tx;
 int shmid_flag;
 unsigned char *ptr_flag;
 unsigned int size;
@@ -682,7 +683,6 @@ for (i = OVERLAYEX_MIN_HANDLE; i < OVERLAYEX_MIN_HANDLE + handle_num; i++) {
 }
 
 
-unsigned char *user_addr;
 int sockfd;
 struct sockaddr_in serverAddr;
 char *buf;
@@ -790,7 +790,7 @@ void memory_tmp()
     size = 24883200;
     ptr_tx = malloc(size);
     ptr_flag = malloc(16);
-    // ptr_rx = malloc(512);
+    user_addr = malloc(size);
 
     shmid_flag = shmget(87, 16, IPC_CREAT|0664);
     ptr_flag = shmat(shmid_flag, NULL, 0);
@@ -828,17 +828,6 @@ static td_void sample_ivs_md_proc(td_void *args)
   
     int count;
     size = 24883200;
-//    ptr_tx = malloc(size);
-    user_addr = malloc(size);
-//    ptr_flag = malloc(16);
-    // ptr_rx = malloc(512);
-    
-//    shmid_flag = shmget(87, 16, IPC_CREAT|0664);
-//    ptr_flag = shmat(shmid_flag, NULL, 0);
-//    shmid_tx = shmget(100, size, IPC_CREAT | 0664);
-//    ptr_tx = shmat(shmid_tx, NULL, 0);
-//    shmid_flag = shmget(87, 16, IPC_CREAT|0664);
-//    ptr_flag = shmat(shmid_flag, NULL, 0);
 
     struct timeval tv;
     struct timezone tz;
@@ -893,9 +882,10 @@ static td_void sample_ivs_md_proc(td_void *args)
          stSrc.height = frm[0].video_frame.height;
          /*初始化输出RPG数据结构体并在内存中为图像数据分配空间*/
 
-         ret = ss_mpi_sys_mmz_alloc_cached(&stDst.phys_addr[0], (hi_void *)&stDst.virt_addr[0], "DstImg",
-                                         HI_NULL, stSrc.width * stSrc.height * 3);
-         if(HI_SUCCESS != ret)
+          ret = ss_mpi_sys_mmz_alloc_cached(&stDst.phys_addr[0], (hi_void *)&stDst.virt_addr[0], "DstImg",
+                                          HI_NULL, stSrc.width * stSrc.height * 3);
+       
+       	 if(HI_SUCCESS != ret)
          {
              printf("Error(%#x),HI_MPI_SYS_MmzAlloc_Cached failed!\n",ret) ;
              ss_mpi_sys_mmz_free(stDst.phys_addr[0],(hi_void*)stDst.phys_addr) ;
@@ -913,16 +903,13 @@ static td_void sample_ivs_md_proc(td_void *args)
              printf("Error(%#x),HI_MPI_IVE_CSC failed!\n",ret) ;
              // return ;
          }
-//	 count++;
-//        if (count % 5 == 0)
-//        {
-            memset(user_addr, 0, size);
-            user_addr = (unsigned char *)ss_mpi_sys_mmap_cached(stDst.phys_addr[0], size);
-            memcpy(ptr_tx, user_addr, size);
-            ss_mpi_sys_munmap(user_addr, size);
+	  unsigned char *user_addr_vir = (unsigned char *)ss_mpi_sys_mmap_cached(stDst.phys_addr[0], size);
+	    ss_mpi_sys_flush_cache(stDst.phys_addr[0],user_addr_vir, size);
+	    usleep(10*1000);
+            memcpy(ptr_tx, user_addr_vir, size);
+            ss_mpi_sys_munmap(user_addr_vir, size);
 //	    printf("shared_memory is :%x,%x,%x,%x\n",shared_memory[0],shared_memory[1],shared_memory[2],shared_memory[3]);
 	    memcpy(ptr_flag,shared_memory,7);
-
 //	    printf("ptr_flag is :%x,%x,%x,%x\n",ptr_flag[0],ptr_flag[1],ptr_flag[2],ptr_flag[3]);
 //        }
 
@@ -1176,6 +1163,13 @@ void *tcp_server_tmp(){
                         uart_mcu_send = 0x00;
                         printf("focus stop!\n");
                     }
+		    else if (buffer[2] == 0x02) {
+                        uart_mcu_send = 0x02;
+                    }
+		   else if (buffer[2] == 0x03) {
+                        uart_mcu_send = 0x03;
+                    }
+
                     //判断数组第四位（进行变倍操作）
                     if (buffer[3] == 0x01) {
                         pelco_set_zoom_tele();
@@ -1185,8 +1179,6 @@ void *tcp_server_tmp(){
                         printf("zoom wide!\n");
                     }
 		    else {
-                        pelco_set_stop();
-                        pelco_set_stop();
                         pelco_set_stop();
 		        printf("zoom stop!\n");
                     }
