@@ -1094,7 +1094,7 @@ static td_s32 sample_ive_md_pause(td_void)
 
 
 /*TCP server */
-#define SERVER_IP "192.168.2.99"
+//#define SERVER_IP "192.168.2.98"
 #define SERVER_PORT 5477
 #define BUFFER_SIZE 1024
 int uart_mcu_send;
@@ -1135,7 +1135,7 @@ void *tcp_server_tmp(){
 
     // 绑定 IP 和端口
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = inet_addr(SERVER_IP);
+    address.sin_addr.s_addr = htonl(INADDR_ANY);
     address.sin_port = htons(SERVER_PORT);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
@@ -1151,7 +1151,7 @@ void *tcp_server_tmp(){
         exit(EXIT_FAILURE);
     }
 
-    printf("Server listening on %s:%d\n", SERVER_IP, SERVER_PORT);
+    printf("Server listening on %s:%d\n", INADDR_ANY, SERVER_PORT);
    
     while (1) {
         // 接受客户端连接
