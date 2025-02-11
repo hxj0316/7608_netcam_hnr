@@ -1197,36 +1197,15 @@ void *tcp_server_tmp(){
                     }
 
                 }
-	       else if(buffer[0] == 0xAF){
-	          //开启二维码识别
+                else if(buffer[0] == 0xAF){
+                  //起始字符为AF 进行IRCUT操作
                   if (buffer[1] == 0x01){
-                       shared_memory[4] = 0x01;
-                       code_flag();
+                       ircut_on();
                   }
-                  else {
-                       shared_memory[4] = 0x00;
-                       code_flag();
+                  else if (buffer[1] == 0x00){
+                       ircut_off();
                   }
-                  //开启一维码识别
-                  if (buffer[2] == 0x01){
-                       shared_memory[5] = 0x01;
-                       code_flag();
-                  }
-                  else {
-                       shared_memory[5] = 0x00;
-                       code_flag();
-                  }
-                  //开启字符识别
-                  if (buffer[3] == 0x01){
-                       shared_memory[6] = 0x01;
-                       code_flag();
-                  }
-                  else {
-                       shared_memory[6] = 0x00;
-                       code_flag();
-                  }
-	       }
-
+               }
             }
         }
     }

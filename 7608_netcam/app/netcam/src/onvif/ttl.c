@@ -504,6 +504,10 @@ void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc,int uart
 #define PELCO_SYNC 0xFF
 #define PELCO_CMD 0x01
 
+#define IRCUT_SYNC 0xAF
+#define IRCUT_OFF 0x00
+#define IRCUT_ON 0X01
+
 #define UP 0x08
 #define DOWN 0x10
 #define LEFT 0x04
@@ -517,6 +521,48 @@ void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc,int uart
 #define SET_PRESET 0x03
 #define DEL_PRESET 0x05
 #define CALL_PRESET 0x07
+
+uint32_t ircut_off()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = IRCUT_SYNC;
+    length++;
+    bytes[length] = IRCUT_OFF;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+uint32_t ircut_on()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = IRCUT_SYNC;
+    length++;
+    bytes[length] = IRCUT_ON;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
 
 uint32_t pelco_set_stop()
 {
