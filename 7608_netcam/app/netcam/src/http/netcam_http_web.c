@@ -366,7 +366,7 @@ static int web_time(HTTP_OPS* ops, void* arg)
     }
     else
     {
-        cJSON  *root = SystemCfgGetNTPJsonSting();//创建项目
+        cJSON  *root = SystemCfgGetNTPJsonSting();
         char localTime[64];
         char *sendData;
 
@@ -458,7 +458,7 @@ static int get_gb28181(HTTP_OPS* ops, void* arg)
     }
     else
     {
-        cJSON  *root = GB28181CfgGetJsonSting();//创建项目
+        cJSON  *root = GB28181CfgGetJsonSting();
         char *sendData;
 
         cJSON_SetItemValue(root, "ServerPwd", "*******");
@@ -1775,71 +1775,237 @@ static int web_upgrade_read_cb(HTTP_OPS* ops, void* arg)
 	return HPE_RET_DISCONNECT;
 }
 
-static int web_upgrade_read(HTTP_OPS* ops, void* arg)
+//浠跨収netcam_update_mail_style鍑芥暟缂栧啓鐨勫皢http涓婁紶鐨勬暟鎹寘鎻愬彇骞跺瓨鍌ㄥ崌绾ф暟鎹殑鍑芥暟//
+static char *upgrade_data = NULL;
+static int upgrade_data_len = 0;
+int netcam_update_http_style(char *binData, int length, cbFunc updateCb)
 {
-	//int method = ops->get_method(ops);
-	char *data = NULL;
-	char *tag;
-	int bodyLen;
-	int fd;
-	int recvLen = 0;
+    char boundary[256];
+    char *findData;
+    char *startPtr;
+    char *endPtr;
+    char appLen[] = "Content-Type: application/octet-stream\r\n\r\n";
 
-    if(netcam_get_update_status() < 0)
+    char *mailUpdateBuf = NULL;
+    int mailUpdateLen = 0;
+    int i;
+
+    memset(boundary, 0, sizeof(boundary));
+
+    findData = strstr(binData, "\r\n");
+    if (findData == NULL)
     {
-	    PRINT_ERR("is updating..............\n");
-	    return	HPE_RET_OUTOF_MEMORY;
+        PRINT_ERR("update package is not mail style format \n");
+        goto update_mail_exit;
     }
-	//PRINT_INFO("Method:%s\n",get_method_string(method));
+    memcpy(boundary, binData, findData - binData);
+    PRINT_INFO("boundary location: %s\n", boundary);
+    startPtr = strstr(binData, appLen);
+    if (startPtr == NULL)
+    {
+        PRINT_ERR("No found start boundary info, error http update package");
+        goto update_mail_exit;
+    }
 
-	tag = (char *)ops->get_tag(ops,(char *)"Content-Length");
-	bodyLen = atoi(tag);
+    startPtr += strlen(appLen);
+    PRINT_INFO("location: 0x%x\n", (int)startPtr);
+    endPtr = binData + length - 1;
+    i = 0;
+    while (*endPtr != '\0' && i < 1024)
+    {
+        endPtr--;
+        i++;
+    }
+
+    PRINT_INFO("find end:  i=%d \n", i);
+    endPtr++;
+    endPtr = strstr(endPtr, boundary);
+    if (endPtr != NULL)
+    {
+        mailUpdateLen = endPtr - startPtr - 2;
+        PRINT_INFO("len:%d\n", mailUpdateLen);
+    }
+    else
+    {
+        PRINT_ERR("No found end boundary info, error http update package");
+        goto update_mail_exit;
+    }
+
+    mailUpdateBuf = startPtr;
+
+    if (upgrade_data != NULL)
+    {
+        free(upgrade_data);
+    }
+    upgrade_data = malloc(mailUpdateLen);
+    if (upgrade_data == NULL)
+    {
+        PRINT_ERR("Memory allocation failed for upgrade data\n");
+        goto update_mail_exit;
+    }
+    memcpy(upgrade_data, mailUpdateBuf, mailUpdateLen);
+    upgrade_data_len = mailUpdateLen;
+
+    PRINT_INFO("Upgrade data stored successfully, length: %d\n", upgrade_data_len);
+
+    return 0;
+
+update_mail_exit:
+    upgrade_data = NULL;
+    upgrade_data_len = 0;
+
+    return -1;
+}
 
 
-	//PRINT_INFO("body Len:%d",bodyLen);
-	if(bodyLen <= 0 || bodyLen > (16*1024*1024+4*1024))
-	{
-		goto ERROR_EXIT;
-	}
+static int web_upgrade_read(HTTP_OPS *ops, void *arg)
+{
+    char *data = NULL;
+    char *tag;
+    int bodyLen;
+    int fd;
+    int recvLen = 0;
 
-	fd = ops->get_connection_fd(ops);
-	if(fd > 0  )
-	{
-		netcam_update_relase_system_resource();
+    if (netcam_get_update_status() < 0)
+    {
+        PRINT_ERR("is updating..............\n");
+        return HPE_RET_OUTOF_MEMORY;
+    }
 
-        //netcam_video_exit();
+    tag = (char *)ops->get_tag(ops, (char *)"Content-Length");
+    bodyLen = atoi(tag);
 
-		recvLen = 0;
-		data = update_recv_http_body(fd,bodyLen,&recvLen);
-		if(recvLen == bodyLen && data != NULL)
-		{
-			if(netcam_update_mail_style(data,bodyLen,NULL) == 0)
-			{
-				return HPE_RET_KEEP_ALIVE;
-			}
-			else
-			{
-				PRINT_ERR(" update package check error");
-			}
-		}
-		else
-		{
-			PRINT_ERR(" recv date package error,recv:%d,all:%d\n",recvLen,bodyLen);
-		}
+    if (bodyLen <= 0 || bodyLen > (16 * 1024 * 1024 + 4 * 1024))
+    {
+        goto ERROR_EXIT;
+    }
 
+    fd = ops->get_connection_fd(ops);
+    if (fd > 0)
+    {
+        netcam_update_relase_system_resource();
 
-	}
+        recvLen = 0;
+        data = update_recv_http_body(fd, bodyLen, &recvLen);
+        if (recvLen == bodyLen && data != NULL)
+        {
+            if (netcam_update_http_style(data, bodyLen, NULL) == 0)
+            {
+                printf("Upgrade package processed successfully\n");
 
+                if (rename("/sharefs/netcam", "/sharefs/netcam_bak") != 0)
+                {
+                    PRINT_ERR("Failed to rename /sharefs/netcam to /sharefs/netcam_bak\n");
+                }
+
+                int file_fd = open("/sharefs/netcam", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (file_fd < 0)
+                {
+                    PRINT_ERR("Failed to open /sharefs/netcam for writing\n");
+                    goto ERROR_EXIT;
+                }
+
+                ssize_t written_len = write(file_fd, upgrade_data, recvLen);
+                if (written_len != recvLen)
+                {
+                    PRINT_ERR("Failed to write all data to /sharefs/netcam\n");
+                    close(file_fd);
+                    goto ERROR_EXIT;
+                }
+
+                close(file_fd);
+                printf("Data successfully saved to /sharefs/netcam\n");
+
+                sleep(5);
+                system("/sharefs/restart.sh");
+            }
+            else
+            {
+                PRINT_ERR("Failed to process the upgrade package\n");
+            }
+        }
+        else
+        {
+            PRINT_ERR("Received data package error, received: %d, expected: %d\n", recvLen, bodyLen);
+        }
+    }
 
 ERROR_EXIT:
-	if(data)
-		free(data);
-	//netcam_exit(90);
-    //new_system_call("reboot -f");//force REBOOT
-	netcam_sys_operation(NULL,(void *)SYSTEM_OPERATION_RESTART_APP); //force restart app
+    if (data)
+    {
+        free(data);
+    }
+    netcam_sys_operation(NULL, (void *)SYSTEM_OPERATION_RESTART_APP);
 
-	return  HPE_RET_OUTOF_MEMORY;
-
+    return HPE_RET_OUTOF_MEMORY;
 }
+
+
+//static int web_upgrade_read(HTTP_OPS* ops, void* arg)
+//{
+//	//int method = ops->get_method(ops);
+//	char *data = NULL;
+//	char *tag;
+//	int bodyLen;
+//	int fd;
+//	int recvLen = 0;
+//
+//    if(netcam_get_update_status() < 0)
+//    {
+//	    PRINT_ERR("is updating..............\n");
+//	    return	HPE_RET_OUTOF_MEMORY;
+//    }
+//	//PRINT_INFO("Method:%s\n",get_method_string(method));
+//
+//	tag = (char *)ops->get_tag(ops,(char *)"Content-Length");
+//	bodyLen = atoi(tag);
+//
+//
+//	//PRINT_INFO("body Len:%d",bodyLen);
+//	if(bodyLen <= 0 || bodyLen > (16*1024*1024+4*1024))
+//	{
+//		goto ERROR_EXIT;
+//	}
+//
+//	fd = ops->get_connection_fd(ops);
+//	if(fd > 0  )
+//	{
+//		netcam_update_relase_system_resource();
+//
+//        //netcam_video_exit();
+//
+//		recvLen = 0;
+//		data = update_recv_http_body(fd,bodyLen,&recvLen);
+//		if(recvLen == bodyLen && data != NULL)
+//		{
+//			if(netcam_update_mail_style(data,bodyLen,NULL) == 0)
+//			{
+//				return HPE_RET_KEEP_ALIVE;
+//			}
+//			else
+//			{
+//				PRINT_ERR(" update package check error");
+//			}
+//		}
+//		else
+//		{
+//			PRINT_ERR(" recv date package error,recv:%d,all:%d\n",recvLen,bodyLen);
+//		}
+//
+//
+//	}
+//
+//
+//ERROR_EXIT:
+//	if(data)
+//		free(data);
+//	//netcam_exit(90);
+//    //new_system_call("reboot -f");//force REBOOT
+//	netcam_sys_operation(NULL,(void *)SYSTEM_OPERATION_RESTART_APP); //force restart app
+//
+//	return  HPE_RET_OUTOF_MEMORY;
+//
+//}
 
 static int device_upgrade_cb(HTTP_OPS* ops, void* arg)
 {
