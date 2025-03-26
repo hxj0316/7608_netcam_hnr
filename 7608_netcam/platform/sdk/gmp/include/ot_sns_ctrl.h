@@ -72,7 +72,13 @@ extern ot_isp_sns_obj g_sns_os05a10_2l_slave_obj;
 extern ot_isp_sns_obj g_sns_imx334_obj;
 extern ot_isp_sns_obj g_sns_os04a10_obj;
 extern ot_isp_sns_obj g_sns_os08b10_obj;
+extern ot_isp_sns_obj g_sns_bg0808_obj;
+extern ot_isp_sns_obj g_sns_SC450AI_obj;
 extern ot_isp_sns_obj g_sns_sc850sl_obj;
+extern ot_isp_sns_obj g_sns_imx678_obj;
+extern ot_isp_sns_obj g_sns_imx464_obj;
+extern ot_isp_sns_obj g_sns_imx675_obj;
+extern ot_isp_sns_obj g_sns_os05b10_obj;
 
 #define sensor_check_pointer_return(ptr) \
     do { \

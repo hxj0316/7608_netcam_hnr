@@ -35,12 +35,16 @@
 #define HEIGHT_2160 2160
 #define WIDTH_2688 2688
 #define HEIGHT_1520 1520
+#define WIDTH_2592 2592
+#define HEIGHT_1944 1944
 #define SLEEP_TIME 1000
 #define MIPI_NUM 3
 #define OB_HEIGHT_END 24
-#define OB_HEIGHT_START 0
+#define OB_HEIGHT_START 0 /* OB, Optical Black, 光学暗区*/
 #define IMX347_OB_HEIGHT_END 20
 #define IMX485_OB_HEIGHT_END 20
+#define IMX464_OB_HEIGHT_END 20
+#define IMX675_OB_HEIGHT_END 0
 
 typedef struct {
     sample_vi_user_frame_info *user_frame_info;
@@ -51,13 +55,6 @@ typedef struct {
 static hi_bool g_send_pipe_pthread = HI_FALSE;
 static hi_bool g_start_isp[HI_VI_MAX_PIPE_NUM] = {HI_FALSE};
 
-static ext_data_type_t  g_mipi_ext_data_sc850sl={
-    .devno = 0,
-    .num = MIPI_NUM,
-    .ext_data_bit_width = {12, 12, 12},
-    .ext_data_type = {0x37, 0x2c, 0x2c}
-};
-
 static ext_data_type_t g_mipi_ext_data_type_os08a20_12bit_8m_nowdr_attr = {
     .devno = 0,
     .num = MIPI_NUM,
@@ -65,7 +62,14 @@ static ext_data_type_t g_mipi_ext_data_type_os08a20_12bit_8m_nowdr_attr = {
     .ext_data_type = {0x37, 0x2c, 0x2c}
 };
 
-static ext_data_type_t g_mipi_ext_data_type_os08a20_12bit_8m_nowdr_dev2_attr = {
+static ext_data_type_t g_mipi_ext_data_type_imx675_10bit_5m_nowdr_attr = {
+    .devno = 0,
+    .num = MIPI_NUM,
+    .ext_data_bit_width = {12, 12, 12},
+    .ext_data_type = {0x37, 0x2c, 0x2c}
+};
+
+static ext_data_type_t g_mipi_ext_data_type_imx675_10bit_5m_nowdr_dev2_attr = {
     .devno = 2,
     .num = MIPI_NUM,
     .ext_data_bit_width = {12, 12, 12},
@@ -76,28 +80,31 @@ static ext_data_type_t g_mipi_ext_data_type_default_attr = {
     .devno = 0,
     .num = MIPI_NUM,
     .ext_data_bit_width = {12, 12, 12},
-    .ext_data_type = {0x2c, 0x2c, 0x2c}
+    .ext_data_type = {0x2c, 0x2c, 0x2c} /* 0x2C RAW12 */
 };
 
 static ext_data_type_t g_mipi_ext_data_type_default_dev2_attr = {
     .devno = 2,
     .num = MIPI_NUM,
     .ext_data_bit_width = {12, 12, 12},
+    .ext_data_type = {0x2c, 0x2c, 0x2c} /* 0x2C RAW12 */
+};
+
+static ext_data_type_t g_mipi_ext_data_type_imx464_12bit_4m_nowdr_dev2_attr = {
+    .devno = 2,
+    .num = MIPI_NUM,
+    .ext_data_bit_width = {12, 12, 12},
     .ext_data_type = {0x2c, 0x2c, 0x2c}
 };
 
-static combo_dev_attr_t g_mipi_sc850sl = {
-    .devno = 0,
-    .input_mode = INPUT_MODE_MIPI,
-    .data_rate  = MIPI_DATA_RATE_X1,
-    .img_rect   = {0, 0, WIDTH_3840, HEIGHT_2160},
-    .mipi_attr = {
-        DATA_TYPE_RAW_12BIT,
-        HI_MIPI_WDR_MODE_NONE,
-        {0, 1, 2, 3, -1, -1, -1, -1}
-    }
+static ext_data_type_t g_mipi_ext_data_type_imx464_10bit_4m_nowdr_dev2_attr = {
+    .devno = 2,
+    .num = MIPI_NUM,
+    .ext_data_bit_width = {10, 12, 12},
+    .ext_data_type = {0x2b, 0x2c, 0x2c} /* 0x2B RAW10 */
 };
 
+/* combo(MIPI Rx)设备属性——os08a20 */
 static combo_dev_attr_t g_mipi_4lane_chn0_sensor_os08a20_12bit_8m_nowdr_attr = {
     .devno = 0,
     .input_mode = INPUT_MODE_MIPI,
@@ -254,30 +261,6 @@ static combo_dev_attr_t g_mipi_4lane_chn0_sensor_os04a10_12bit_4m_nowdr_dev2_att
     }
 };
 
-static combo_dev_attr_t g_mipi_4lane_chn0_sensor_os04a10_12bit_4m_wdr2to1_dev0_attr = {
-    .devno = 0,
-    .input_mode = INPUT_MODE_MIPI,
-    .data_rate = MIPI_DATA_RATE_X1,
-    .img_rect = {0, 0, WIDTH_2688, HEIGHT_1520},
-    .mipi_attr = {
-        DATA_TYPE_RAW_12BIT,
-        HI_MIPI_WDR_MODE_VC,
-        {1, 2, 3, 4, -1, -1, -1, -1}
-    }
-};
-
-static combo_dev_attr_t g_mipi_4lane_chn0_sensor_os04a10_12bit_4m_wdr2to1_dev2_attr = {
-    .devno = 2,
-    .input_mode = INPUT_MODE_MIPI,
-    .data_rate = MIPI_DATA_RATE_X1,
-    .img_rect = {0, 0, WIDTH_2688, HEIGHT_1520},
-    .mipi_attr = {
-        DATA_TYPE_RAW_12BIT,
-        HI_MIPI_WDR_MODE_VC,
-        {4, 5, 6, 7, -1, -1, -1, -1}
-    }
-};
-
 static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx347_slave_12bit_4m_nowdr_attr = {
     .devno = 0,
     .input_mode = INPUT_MODE_MIPI,
@@ -338,21 +321,158 @@ static combo_dev_attr_t g_mipi_8lane_chn0_sensor_imx485_10bit_8m_wdr3to1_attr = 
     }
 };
 
+static combo_dev_attr_t g_mipi_2lane_chn0_sensor_bg0808_12bit_2m_nowdr_single_attr = {
+    .devno = 0,
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_1920, HEIGHT_1080},
+    .mipi_attr = {
+        DATA_TYPE_RAW_12BIT,
+        HI_MIPI_WDR_MODE_NONE,
+        {0, 1, -1, -1, -1, -1, -1, -1}
+    }
+};
+
+/* IMX464 */
+static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx464_12bit_4m_nowdr_attr = {
+    .devno = 0,
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_2688, HEIGHT_1520},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_12BIT,
+        HI_MIPI_WDR_MODE_NONE, /* 线性模式 */
+        {0, 1, 2, 3, -1, -1, -1, -1}
+    }
+};
+
+static combo_dev_attr_t g_mipi_4lane_chn2_sensor_imx464_12bit_4m_nowdr_attr = {
+    .devno = 2, /* dev2 */
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_2688, HEIGHT_1520},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_12BIT,
+        HI_MIPI_WDR_MODE_NONE, /* 线性模式 */
+        {4, 5, 6, 7, -1, -1, -1, -1}
+    }
+};
+
+static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_attr = {
+    .devno = 0,
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_2688, HEIGHT_1520},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_10BIT,
+        HI_MIPI_WDR_MODE_VC, /* 虚拟通道*/
+        {0, 1, 2, 3, -1, -1, -1, -1}
+    }
+};
+
+static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_dev2_attr = {
+    .devno = 2, /* dev2 */
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_2688, HEIGHT_1520},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_10BIT,
+        HI_MIPI_WDR_MODE_VC, /* 虚拟通道*/
+        {4, 5, 6, 7, -1, -1, -1, -1}
+    }
+};
+
+static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr3to1_attr = {
+    .devno = 0,  /* MIPI Rx设备号 */
+    .input_mode = INPUT_MODE_MIPI, /* 输入接口类型 input_mode */
+    .data_rate  = MIPI_DATA_RATE_X1, /* 接口传输速率 data_rate */
+    .img_rect   = {0, 0, WIDTH_2688, HEIGHT_1520}, /* 图像crop区域 */
+    .mipi_attr  = {
+        DATA_TYPE_RAW_10BIT, /* 传输的数据类型 raw_data_type*/
+        HI_MIPI_WDR_MODE_VC, /* 虚拟通道 mipi_wdr_mode */
+        {0, 1, 2, 3, -1, -1, -1, -1} /* mipi_lane_id */
+    }
+};
+
+static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr3to1_dev2_attr = {
+    .devno = 2, /* dev2 */
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_2688, HEIGHT_1520},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_10BIT,
+        HI_MIPI_WDR_MODE_VC, /* 虚拟通道*/
+        {4, 5, 6, 7, -1, -1, -1, -1}
+    }
+};
+
+static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_frame_attr = {
+    .devno = 0,
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_2688, HEIGHT_1520},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_10BIT,
+        HI_MIPI_WDR_MODE_VC, /* 虚拟通道*/
+        {0, 1, 2, 3, -1, -1, -1, -1}
+    }
+};
+
+static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_frame_dev2_attr = {
+    .devno = 2, /* dev2 */
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_2688, HEIGHT_1520},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_10BIT,
+        HI_MIPI_WDR_MODE_VC, /* 虚拟通道*/
+        {4, 5, 6, 7, -1, -1, -1, -1}
+    }
+};
+
+/* IMX675 */
+static combo_dev_attr_t g_mipi_4lane_chn0_sensor_imx675_10bit_5m_nowdr_attr = {
+    .devno = 0,
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+    .img_rect   = {0, 0, WIDTH_2592, HEIGHT_1944},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_10BIT,
+        HI_MIPI_WDR_MODE_NONE, /* 线性模式 */
+        {0, 1, 2, 3, -1, -1, -1, -1}
+    }
+};
+
+/* [mipi_mode.0] 配置 */
+static combo_dev_attr_t g_mipi_4lane_chn2_sensor_imx675_10bit_5m_nowdr_attr = {
+    .devno = 2, /* dev2 */
+    .input_mode = INPUT_MODE_MIPI,
+    .data_rate  = MIPI_DATA_RATE_X1,
+	.img_rect   = {8, 20, WIDTH_2592, HEIGHT_1944},
+    .mipi_attr  = {
+        DATA_TYPE_RAW_10BIT,
+        HI_MIPI_WDR_MODE_NONE, /* 线性模式 */
+        {4, 5, 6, 7, -1, -1, -1, -1}
+    }
+};
+
+
+/* 根据 sensor 类型获取 MIPI Rx 设备属性 */
 static hi_void sample_comm_vi_get_mipi_attr(sample_sns_type sns_type, combo_dev_attr_t *combo_attr)
 {
-    hi_u32 ob_height = OB_HEIGHT_START;
+    hi_u32 ob_height = OB_HEIGHT_START; /* 光学暗区高度 */
     switch (sns_type) {
-	    //add sensor
-	case SC850SL_8M30:
-	    (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
-                &g_mipi_sc850sl, sizeof(combo_dev_attr_t));
-            break;
-
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
             ob_height = OB_HEIGHT_END;
             (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
                 &g_mipi_4lane_chn0_sensor_os08a20_12bit_8m_nowdr_attr, sizeof(combo_dev_attr_t));
             break;
+
+		case BG_BG0808_MIPI_2M_30FPS_12BIT:
+			 ob_height = OB_HEIGHT_END;
+            (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                &g_mipi_2lane_chn0_sensor_bg0808_12bit_2m_nowdr_single_attr, sizeof(combo_dev_attr_t));
+			break;
 
         case OV_OS08A20_MIPI_8M_30FPS_12BIT_WDR2TO1:
             ob_height = OB_HEIGHT_END;
@@ -393,24 +513,53 @@ static hi_void sample_comm_vi_get_mipi_attr(sample_sns_type sns_type, combo_dev_
             break;
 
         case SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1:
+			ob_height = IMX485_OB_HEIGHT_END;
             (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
                 &g_mipi_8lane_chn0_sensor_imx485_10bit_8m_wdr3to1_attr, sizeof(combo_dev_attr_t));
             break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+			ob_height = IMX464_OB_HEIGHT_END;
+			(hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                &g_mipi_4lane_chn0_sensor_imx464_12bit_4m_nowdr_attr, sizeof(combo_dev_attr_t));
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1:
+			ob_height = IMX464_OB_HEIGHT_END;
+			(hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_attr, sizeof(combo_dev_attr_t));
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1:
+			ob_height = IMX464_OB_HEIGHT_END;
+			(hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr3to1_attr, sizeof(combo_dev_attr_t));
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME:
+			ob_height = IMX464_OB_HEIGHT_END;
+			(hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_frame_attr, sizeof(combo_dev_attr_t));
+			break;
+
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			ob_height = IMX675_OB_HEIGHT_END;
+			(hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                &g_mipi_4lane_chn0_sensor_imx675_10bit_5m_nowdr_attr, sizeof(combo_dev_attr_t));
+			break;
 
         default:
             (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
                 &g_mipi_4lane_chn0_sensor_os08a20_12bit_8m_nowdr_attr, sizeof(combo_dev_attr_t));
     }
+	
     combo_attr->img_rect.height = combo_attr->img_rect.height + ob_height;
 }
 
+/* 根据 sensor 类型获取 MIPI 扩展DATE TYPE属性 [mipi_mode.0] */
 static hi_void sample_comm_vi_get_mipi_ext_data_attr(sample_sns_type sns_type, ext_data_type_t *ext_data_attr)
 {
     switch (sns_type) {
-	      case SC850SL_8M30:
-		        (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
-                &g_mipi_ext_data_sc850sl, sizeof(ext_data_type_t));
-            break;
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
         case OV_OS04A10_MIPI_4M_30FPS_12BIT:
         case SONY_IMX485_MIPI_8M_30FPS_12BIT:
@@ -427,12 +576,62 @@ static hi_void sample_comm_vi_get_mipi_ext_data_attr(sample_sns_type sns_type, e
             (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
                 &g_mipi_ext_data_type_default_attr, sizeof(ext_data_type_t));
             break;
-
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME:
+			 (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
+                &g_mipi_ext_data_type_default_dev2_attr, sizeof(ext_data_type_t));
+            break;
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			 (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
+                &g_mipi_ext_data_type_imx675_10bit_5m_nowdr_attr, sizeof(ext_data_type_t));
+			break;
         default:
             (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
                 &g_mipi_ext_data_type_default_attr, sizeof(ext_data_type_t));
     }
 }
+
+static hi_void sample_comm_vi_get_mipi_ext_data_attr_by_dev_id(sample_sns_type sns_type, hi_vi_dev vi_dev, ext_data_type_t *ext_data_attr)
+{
+    switch (sns_type) {
+        case OV_OS08A20_MIPI_8M_30FPS_12BIT:
+        case OV_OS04A10_MIPI_4M_30FPS_12BIT:
+        case SONY_IMX485_MIPI_8M_30FPS_12BIT:
+        case SONY_IMX347_SLAVE_MIPI_4M_30FPS_12BIT:
+            (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
+                &g_mipi_ext_data_type_os08a20_12bit_8m_nowdr_attr, sizeof(ext_data_type_t));
+            break;
+
+        case OV_OS08A20_MIPI_8M_30FPS_12BIT_WDR2TO1:
+        case OV_OS05A10_SLAVE_MIPI_4M_30FPS_12BIT:
+        case SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1:
+        case OV_OS08B10_MIPI_8M_30FPS_12BIT_WDR2TO1:
+        case OV_OS08B10_MIPI_8M_30FPS_12BIT:
+            (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
+                &g_mipi_ext_data_type_default_attr, sizeof(ext_data_type_t));
+            break;
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1: 
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+				if(0 == vi_dev)
+				{
+					 (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
+                		&g_mipi_ext_data_type_imx675_10bit_5m_nowdr_attr, sizeof(ext_data_type_t));
+				}
+				else if(2 == vi_dev)
+				{
+					(hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
+                		&g_mipi_ext_data_type_imx675_10bit_5m_nowdr_dev2_attr, sizeof(ext_data_type_t));
+				}		
+			break;
+        default:
+            (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
+                &g_mipi_ext_data_type_default_attr, sizeof(ext_data_type_t));
+    }
+}
+
 
 static hi_void sample_comm_vi_get_os05a10_mipi_attr(hi_vi_dev vi_dev, combo_dev_attr_t *combo_attr)
 {
@@ -451,17 +650,12 @@ static hi_void sample_comm_vi_get_os05a10_mipi_attr(hi_vi_dev vi_dev, combo_dev_
     }
 }
 
+/* 获取combo设备属性 */
 static hi_void sample_comm_vi_get_mipi_attr_by_dev_id(sample_sns_type sns_type, hi_vi_dev vi_dev,
                                                       combo_dev_attr_t *combo_attr)
 {
     hi_u32 ob_height = OB_HEIGHT_START;
     switch (sns_type) {
-	      case SC850SL_8M30:
-	          if (vi_dev == 0) {
-                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
-                    &g_mipi_sc850sl, sizeof(combo_dev_attr_t));
-             }
-	    break;
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
             ob_height = OB_HEIGHT_END;
             if (vi_dev == 0) {
@@ -497,16 +691,6 @@ static hi_void sample_comm_vi_get_mipi_attr_by_dev_id(sample_sns_type sns_type, 
             }
             break;
 
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1:
-            if (vi_dev == 0) {
-                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
-                    &g_mipi_4lane_chn0_sensor_os04a10_12bit_4m_wdr2to1_dev0_attr, sizeof(combo_dev_attr_t));
-            } else if (vi_dev == 2) { /* dev2 */
-                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
-                    &g_mipi_4lane_chn0_sensor_os04a10_12bit_4m_wdr2to1_dev2_attr, sizeof(combo_dev_attr_t));
-            }
-            break;            
-
         case SONY_IMX347_SLAVE_MIPI_4M_30FPS_12BIT:
             ob_height = IMX347_OB_HEIGHT_END;
             if (vi_dev == 0) {
@@ -529,6 +713,61 @@ static hi_void sample_comm_vi_get_mipi_attr_by_dev_id(sample_sns_type sns_type, 
             }
             break;
 
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			ob_height = IMX675_OB_HEIGHT_END;
+			if (vi_dev == 0) {
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn0_sensor_imx675_10bit_5m_nowdr_attr, sizeof(combo_dev_attr_t));
+            } else if (vi_dev == 2) { /* dev2 */
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn2_sensor_imx675_10bit_5m_nowdr_attr, sizeof(combo_dev_attr_t));
+            }
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+			ob_height = IMX464_OB_HEIGHT_END;
+			if (vi_dev == 0) {
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn0_sensor_imx464_12bit_4m_nowdr_attr, sizeof(combo_dev_attr_t));
+            } else if (vi_dev == 2) { /* dev2 */
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn2_sensor_imx464_12bit_4m_nowdr_attr, sizeof(combo_dev_attr_t));
+            }
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1:
+			ob_height = IMX464_OB_HEIGHT_END;
+			if (vi_dev == 0) {
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_attr, sizeof(combo_dev_attr_t));
+            } else if (vi_dev == 2) { /* dev2 */
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_dev2_attr, sizeof(combo_dev_attr_t));
+            }
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME:
+			ob_height = IMX464_OB_HEIGHT_END;
+			if (vi_dev == 0) {
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_frame_attr, sizeof(combo_dev_attr_t));
+            } else if (vi_dev == 2) { /* dev2 */
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr2to1_frame_dev2_attr, sizeof(combo_dev_attr_t));
+            }
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1:
+			ob_height = IMX464_OB_HEIGHT_END;
+			if (vi_dev == 0) {
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr3to1_attr, sizeof(combo_dev_attr_t));
+            } else if (vi_dev == 2) { /* dev2 */
+                (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
+                    &g_mipi_4lane_chn0_sensor_imx464_10bit_4m_wdr3to1_dev2_attr, sizeof(combo_dev_attr_t));
+            }
+			break;
+
         default:
             (hi_void)memcpy_s(combo_attr, sizeof(combo_dev_attr_t),
                 &g_mipi_4lane_chn0_sensor_os08a20_12bit_8m_nowdr_attr, sizeof(combo_dev_attr_t));
@@ -536,50 +775,7 @@ static hi_void sample_comm_vi_get_mipi_attr_by_dev_id(sample_sns_type sns_type, 
     combo_attr->img_rect.height = combo_attr->img_rect.height + ob_height;
 }
 
-static hi_void sample_comm_vi_get_mipi_ext_data_attr_by_dev_id(sample_sns_type sns_type, hi_vi_dev vi_dev, 
-                                                                ext_data_type_t *ext_data_attr)
-{
-    switch (sns_type) {
-        case OV_OS08A20_MIPI_8M_30FPS_12BIT:
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT:
-        case SONY_IMX485_MIPI_8M_30FPS_12BIT:
-        case SONY_IMX347_SLAVE_MIPI_4M_30FPS_12BIT:
-            if (vi_dev == 0) {
-                (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
-                    &g_mipi_ext_data_type_os08a20_12bit_8m_nowdr_attr, sizeof(ext_data_type_t));
-            } else if (vi_dev == 2) {
-                (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
-                    &g_mipi_ext_data_type_os08a20_12bit_8m_nowdr_dev2_attr, sizeof(ext_data_type_t));
-            }
-            break;
-
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1:
-        case OV_OS08A20_MIPI_8M_30FPS_12BIT_WDR2TO1:
-        case OV_OS05A10_SLAVE_MIPI_4M_30FPS_12BIT:
-        case SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1:
-        case OV_OS08B10_MIPI_8M_30FPS_12BIT_WDR2TO1:
-        case OV_OS08B10_MIPI_8M_30FPS_12BIT:
-            if (vi_dev == 0) {
-                (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
-                    &g_mipi_ext_data_type_default_attr, sizeof(ext_data_type_t));
-            } else if (vi_dev == 2) {
-                (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
-                    &g_mipi_ext_data_type_default_dev2_attr, sizeof(ext_data_type_t));                
-            }
-            break;
-
-        default:
-            if (vi_dev == 0) {
-                (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
-                    &g_mipi_ext_data_type_default_attr, sizeof(ext_data_type_t));
-            } else if (vi_dev == 2) {
-                (hi_void)memcpy_s(ext_data_attr, sizeof(ext_data_type_t),
-                    &g_mipi_ext_data_type_default_dev2_attr, sizeof(ext_data_type_t));                
-            }
-            break;
-    }
-}
-
+/* [vi_dev.0] 配置 */
 static hi_vi_dev_attr g_mipi_raw_dev_attr = {
     .intf_mode = HI_VI_INTF_MODE_MIPI,
 
@@ -641,10 +837,13 @@ static hi_void sample_comm_vi_get_dev_attr_by_intf_mode(hi_vi_intf_mode intf_mod
     }
 }
 
+/// @brief 根据sensor类型获取视频输入图像的大小
+/// @param sns_type  sensor类型
+/// @param size 视频输入图像的大小
+/// @return 
 hi_void sample_comm_vi_get_size_by_sns_type(sample_sns_type sns_type, hi_size *size)
 {
     switch (sns_type) {
-	      case SC850SL_8M30:
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
         case OV_OS08A20_MIPI_8M_30FPS_12BIT_WDR2TO1:
         case OV_OS08B10_MIPI_8M_30FPS_12BIT:
@@ -654,14 +853,23 @@ hi_void sample_comm_vi_get_size_by_sns_type(sample_sns_type sns_type, hi_size *s
             size->width  = WIDTH_3840;
             size->height = HEIGHT_2160;
             break;
-
         case OV_OS04A10_MIPI_4M_30FPS_12BIT:
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1:
             size->width  = WIDTH_2688;
             size->height = HEIGHT_1520;
             break;
         case SONY_IMX347_SLAVE_MIPI_4M_30FPS_12BIT:
             size->width  = WIDTH_2592;
+            size->height = HEIGHT_1520;
+            break;
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			size->width  = WIDTH_2592;
+            size->height = HEIGHT_1944;
+            break;
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1:
+            size->width  = WIDTH_2688;
             size->height = HEIGHT_1520;
             break;
 
@@ -670,22 +878,22 @@ hi_void sample_comm_vi_get_size_by_sns_type(sample_sns_type sns_type, hi_size *s
             size->height = HEIGHT_1520;
             break;
 
+		case BG_BG0808_MIPI_2M_30FPS_12BIT:
+			size->width  = WIDTH_1920;
+            size->height = HEIGHT_1080;
+			break;
+
         default:
             size->width  = WIDTH_1920;
             size->height = HEIGHT_1080;
             break;
     }
-
-    sample_print("sns_size: width = %d, height = %d\n", size->width, size->height);
 }
 
 hi_u32 sample_comm_vi_get_obheight_by_sns_type(sample_sns_type sns_type)
 {
     hi_u32 ob_height = OB_HEIGHT_START;
     switch (sns_type) {
-	      case SC850SL_8M30:
-	          ob_height = OB_HEIGHT_START;
-            break;
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
             ob_height = OB_HEIGHT_END;
             break;
@@ -698,12 +906,18 @@ hi_u32 sample_comm_vi_get_obheight_by_sns_type(sample_sns_type sns_type)
         case SONY_IMX485_MIPI_8M_30FPS_12BIT:
             ob_height = IMX485_OB_HEIGHT_END;
             break;
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			ob_height = IMX675_OB_HEIGHT_END;
+			break;
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+			ob_height = IMX464_OB_HEIGHT_END;
+			break;
         case OV_OS05A10_SLAVE_MIPI_4M_30FPS_12BIT:
         case SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1:
         case OV_OS04A10_MIPI_4M_30FPS_12BIT:
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1:
         case OV_OS08B10_MIPI_8M_30FPS_12BIT:
         case OV_OS08B10_MIPI_8M_30FPS_12BIT_WDR2TO1:
+		case BG_BG0808_MIPI_2M_30FPS_12BIT:
             ob_height = OB_HEIGHT_START;
             break;
         default:
@@ -716,7 +930,6 @@ hi_u32 sample_comm_vi_get_obheight_by_sns_type(sample_sns_type sns_type)
 static hi_u32 sample_comm_vi_get_pipe_num_by_sns_type(sample_sns_type sns_type)
 {
     switch (sns_type) {
-	      case SC850SL_8M30:
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
         case OV_OS04A10_MIPI_4M_30FPS_12BIT:
         case OV_OS08B10_MIPI_8M_30FPS_12BIT:
@@ -725,14 +938,21 @@ static hi_u32 sample_comm_vi_get_pipe_num_by_sns_type(sample_sns_type sns_type)
         case SONY_IMX485_MIPI_8M_30FPS_12BIT:
             return 1;
 
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1:
         case OV_OS08A20_MIPI_8M_30FPS_12BIT_WDR2TO1:
         case OV_OS08B10_MIPI_8M_30FPS_12BIT_WDR2TO1:
             return 2; /* 2 pipe */
 
         case SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1:
             return 3; /* 3 pipe */
-
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			return 1;
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+			return 1;
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME:
+			return 2;
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1:
+			return 3;
         default:
             return 1;
     }
@@ -741,67 +961,122 @@ static hi_u32 sample_comm_vi_get_pipe_num_by_sns_type(sample_sns_type sns_type)
 static hi_wdr_mode sample_comm_vi_get_wdr_mode_by_sns_type(sample_sns_type sns_type)
 {
     switch (sns_type) {
-	      case SC850SL_8M30:
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
         case OV_OS04A10_MIPI_4M_30FPS_12BIT:
         case OV_OS08B10_MIPI_8M_30FPS_12BIT:
         case OV_OS05A10_SLAVE_MIPI_4M_30FPS_12BIT:
         case SONY_IMX347_SLAVE_MIPI_4M_30FPS_12BIT:
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
             return HI_WDR_MODE_NONE;
 
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1:
         case OV_OS08A20_MIPI_8M_30FPS_12BIT_WDR2TO1:
         case OV_OS08B10_MIPI_8M_30FPS_12BIT_WDR2TO1:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1:
             return HI_WDR_MODE_2To1_LINE;
 
         case SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1:
             return HI_WDR_MODE_3To1_LINE;
 
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME:
+			return HI_WDR_MODE_2To1_FRAME;
+		
         default:
             return HI_WDR_MODE_NONE;
     }
 }
 
+/* 根据sensor类型获取默认的 sensor 信息*/
 hi_void sample_comm_vi_get_default_sns_info(sample_sns_type sns_type, sample_sns_info *sns_info)
 {
     sns_info->sns_type    = sns_type;
-    sns_info->sns_clk_src = 0;
-    sns_info->sns_rst_src = 0;
-    sns_info->bus_id      = 2; /* i2c2  */
+	
+	/* 时钟源类型: 
+	  * 0 - PLL类型时钟源; 
+	  * 1- LCD分频器时钟、
+	  * 2-PLL FOUT4（从PLL FOUT4 Pin脚输出时钟），
+	  * 3-固定频点类型 */
+	sns_info->sns_clk_src = 0;
+	sns_info->sns_rst_src = 0; /* sensor0 复位源类型 */
+	sns_info->bus_id           = 2; /* i2c2  */
 }
 
-hi_void sample_comm_vi_get_os04a10_sns_info(sample_sns_type sns_type, sample_sns_info *sns_info)
+/* [isp.0] 配置 */
+hi_void sample_comm_vi_get_sns_info_by_dev_id(sample_sns_type sns_type, hi_vi_dev vi_dev, sample_sns_info *sns_info)
 {
     sns_info->sns_type    = sns_type;
-    sns_info->sns_clk_src = 1;
-    sns_info->sns_rst_src = 1;
-    sns_info->bus_id      = 4; /* i2c4  */
+
+	if (2 == vi_dev)
+	{
+		/* 时钟源类型: 
+		  * 0 - PLL类型时钟源; 
+		  * 1- LCD分频器时钟、
+		  * 2-PLL FOUT4（从PLL FOUT4 Pin脚输出时钟），
+	     * 3-固定频点类型 */
+		sns_info->sns_clk_src = 1;
+		sns_info->sns_rst_src = 1; /* sensor1 复位源类型 */
+		sns_info->bus_id           = 4; /* i2c4  */
+	} 
+	else if (0 == vi_dev)
+	{
+		/* 时钟源类型: 
+		  * 0 - PLL类型时钟源; 
+		  * 1- LCD分频器时钟、
+		  * 2-PLL FOUT4（从PLL FOUT4 Pin脚输出时钟），
+		  * 3-固定频点类型 */
+		sns_info->sns_clk_src = 0;
+		sns_info->sns_rst_src = 0; /* sensor0 复位源类型 */
+		sns_info->bus_id           = 2; /* i2c2  */
+	} else{
+		/* 时钟源类型: 
+		  * 0 - PLL类型时钟源; 
+		  * 1- LCD分频器时钟、
+		  * 2-PLL FOUT4（从PLL FOUT4 Pin脚输出时钟），
+		  * 3-固定频点类型 */
+		sns_info->sns_clk_src = 0;
+		sns_info->sns_rst_src = 0; /* sensor0 复位源类型 */
+		sns_info->bus_id           = 2; /* i2c2  */
+	}
+	
 }
 
+/* used for one sensor: mipi lane 8
+  * 根据sensor类型获取默认的 mipi 信息*/
 hi_void sample_comm_vi_get_default_mipi_info(sample_sns_type sns_type, sample_mipi_info *mipi_info)
 {
-    mipi_info->mipi_dev    = 0;
-    mipi_info->divide_mode = LANE_DIVIDE_MODE_0;
-    sample_comm_vi_get_mipi_attr(sns_type, &mipi_info->combo_dev_attr);
+    mipi_info->mipi_dev    = 2;
+	mipi_info->divide_mode = LANE_DIVIDE_MODE_1; /* 8lane */
+   
+	/* 根据 sensor 类型获取 MIPI Rx 设备属性 */
+    sample_comm_vi_get_mipi_attr(sns_type, &mipi_info->combo_dev_attr); /* [mipi_mode.0] 配置 */
     sample_comm_vi_get_mipi_ext_data_attr(sns_type, &mipi_info->ext_data_type_attr);
 }
 
-hi_void sample_comm_vi_get_os04a10_mipi_info(sample_sns_type sns_type, sample_mipi_info *mipi_info)
-{
-    mipi_info->mipi_dev    = 2;
-    mipi_info->divide_mode = LANE_DIVIDE_MODE_1;
-    sample_comm_vi_get_mipi_attr_by_dev_id(sns_type, 2, &mipi_info->combo_dev_attr);
-    sample_comm_vi_get_mipi_ext_data_attr_by_dev_id(sns_type, 2, &mipi_info->ext_data_type_attr);
-}
-
-/* used for two sensor: mipi lane 4 + 4 */
+/* used for two sensor: mipi lane 4 + 4 
+ * vi_dev: VI 设备号
+ * [mipi_mode.0] 配置
+*/
 hi_void sample_comm_vi_get_mipi_info_by_dev_id(sample_sns_type sns_type, hi_vi_dev vi_dev, sample_mipi_info *mipi_info)
 {
-    mipi_info->mipi_dev    = vi_dev;
-    mipi_info->divide_mode = LANE_DIVIDE_MODE_1;
-    sample_comm_vi_get_mipi_attr_by_dev_id(sns_type, vi_dev, &mipi_info->combo_dev_attr);
-    sample_comm_vi_get_mipi_ext_data_attr(sns_type, &mipi_info->ext_data_type_attr);
-    mipi_info->ext_data_type_attr.devno = vi_dev;
+	switch (sns_type)
+	{
+	case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+		mipi_info->mipi_dev         = vi_dev; // 2
+    	mipi_info->divide_mode = LANE_DIVIDE_MODE_1; /* 4lane + 4lane */
+    	sample_comm_vi_get_mipi_attr_by_dev_id(sns_type, vi_dev, &mipi_info->combo_dev_attr);
+    	sample_comm_vi_get_mipi_ext_data_attr_by_dev_id(sns_type, vi_dev,  &mipi_info->ext_data_type_attr);
+		break;
+	
+	default:
+		mipi_info->mipi_dev         = vi_dev; // 2
+    	mipi_info->divide_mode = LANE_DIVIDE_MODE_1; /* 4lane + 4lane */
+    	sample_comm_vi_get_mipi_attr_by_dev_id(sns_type, vi_dev, &mipi_info->combo_dev_attr);
+    	sample_comm_vi_get_mipi_ext_data_attr(sns_type, &mipi_info->ext_data_type_attr);
+    	mipi_info->ext_data_type_attr.devno = vi_dev;
+		break;
+	}
+    
 }
 
 hi_void sample_comm_vi_get_default_dev_info(sample_sns_type sns_type, sample_vi_dev_info *dev_info)
@@ -814,6 +1089,8 @@ hi_void sample_comm_vi_get_default_dev_info(sample_sns_type sns_type, sample_vi_
     if (sns_type == SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1) {
         dev_info->dev_attr.data_rate = HI_DATA_RATE_X2;
     }
+
+	/* 根据sensor类型获取视频输入图像的大小 */
     sample_comm_vi_get_size_by_sns_type(sns_type, &size);
     ob_height = sample_comm_vi_get_obheight_by_sns_type(sns_type);
     dev_info->dev_attr.in_size.width  = size.width;
@@ -821,23 +1098,38 @@ hi_void sample_comm_vi_get_default_dev_info(sample_sns_type sns_type, sample_vi_
     dev_info->bas_attr.enable = HI_FALSE;
 }
 
-hi_void sample_comm_vi_get_os04a10_dev_info(sample_sns_type sns_type, sample_vi_dev_info *dev_info)
+/* [vi_dev.0] 配置 */
+hi_void sample_comm_vi_get_dev_info_by_dev_id(sample_sns_type sns_type, hi_vi_dev vi_dev, sample_vi_dev_info *dev_info)
 {
-    hi_size size;
+	hi_size size;
     hi_u32 ob_height;
 
-    dev_info->vi_dev = 2;
-    sample_comm_vi_get_dev_attr_by_intf_mode(HI_VI_INTF_MODE_MIPI, &dev_info->dev_attr);
+    dev_info->vi_dev = vi_dev;
+    sample_comm_vi_get_dev_attr_by_intf_mode(HI_VI_INTF_MODE_MIPI, &dev_info->dev_attr); /* [vi_dev.0] 配置 */
     if (sns_type == SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1) {
         dev_info->dev_attr.data_rate = HI_DATA_RATE_X2;
     }
+
+	/* 根据sensor类型获取视频输入图像的大小 */
     sample_comm_vi_get_size_by_sns_type(sns_type, &size);
     ob_height = sample_comm_vi_get_obheight_by_sns_type(sns_type);
     dev_info->dev_attr.in_size.width  = size.width;
     dev_info->dev_attr.in_size.height = size.height + ob_height;
     dev_info->bas_attr.enable = HI_FALSE;
+
+	switch (sns_type)
+	{
+	case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+		dev_info->dev_attr.in_size.width  = size.width;
+    	dev_info->dev_attr.in_size.height = size.height;
+		break;
+	
+	default:
+		break;
+	}
 }
 
+/* [vi_dev.0] BindPipeNum & BindPipeId 配置*/
 static hi_void sample_comm_vi_get_default_bind_info(sample_sns_type sns_type, hi_vi_bind_pipe *bind_pipe)
 {
     hi_u32 i;
@@ -845,26 +1137,26 @@ static hi_void sample_comm_vi_get_default_bind_info(sample_sns_type sns_type, hi
     bind_pipe->pipe_num = sample_comm_vi_get_pipe_num_by_sns_type(sns_type);
     for (i = 0; i < bind_pipe->pipe_num; i++) {
         bind_pipe->pipe_id[i] = i;
-        //sample_print("bind_pipe->pipe_id[%d] = %d\n", i, bind_pipe->pipe_id[i]);
     }
 }
 
+/* [vi_grp.0] 配置 */
 static hi_void sample_comm_vi_get_default_grp_info(sample_sns_type sns_type, sample_vi_grp_info *grp_info)
 {
     hi_u32 i;
     hi_u32 pipe_num;
     hi_size size;
 
+	/* 根据sensor类型获取视频输入图像的大小 */
     sample_comm_vi_get_size_by_sns_type(sns_type, &size);
-    sample_print("sns_type = %d\n",sns_type);
     grp_info->grp_num = 1;
+	/* [vi_grp.0] 配置 */
     grp_info->fusion_grp[0] = 0;
     grp_info->fusion_grp_attr[0].wdr_mode = sample_comm_vi_get_wdr_mode_by_sns_type(sns_type);
     grp_info->fusion_grp_attr[0].cache_line = size.height;
     pipe_num = sample_comm_vi_get_pipe_num_by_sns_type(sns_type);
     for (i = 0; i < pipe_num; i++) {
         grp_info->fusion_grp_attr[0].pipe_id[i] = i;
-    sample_print("grp_info->fusion_grp_attr[0].pipe_id[%d] = %d\n", i, grp_info->fusion_grp_attr[0].pipe_id[i]);
     }
 }
 
@@ -874,6 +1166,7 @@ hi_void sample_comm_vi_get_default_pipe_info(sample_sns_type sns_type, hi_vi_bin
     hi_u32 i;
     hi_size size;
 
+	/* 根据sensor类型获取视频输入图像的大小 */
     sample_comm_vi_get_size_by_sns_type(sns_type, &size);
 
     for (i = 0; i < bind_pipe->pipe_num; i++) {
@@ -889,7 +1182,8 @@ hi_void sample_comm_vi_get_default_pipe_info(sample_sns_type sns_type, hi_vi_bin
         pipe_info[i].pipe_attr.frame_rate_ctrl.src_frame_rate = -1;
         pipe_info[i].pipe_attr.frame_rate_ctrl.dst_frame_rate = -1;
 
-        if (sns_type == SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1) {
+        if ((sns_type == SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1) || 
+				(SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1 == sns_type)) {
             pipe_info[i].pipe_attr.pixel_format  = HI_PIXEL_FORMAT_RGB_BAYER_10BPP;
             pipe_info[i].pipe_attr.compress_mode = HI_COMPRESS_MODE_NONE;
         }
@@ -911,91 +1205,94 @@ hi_void sample_comm_vi_get_default_pipe_info(sample_sns_type sns_type, hi_vi_bin
         pipe_info[i].chn_info[0].chn_attr.compress_mode                  = HI_COMPRESS_MODE_NONE;
         pipe_info[i].chn_info[0].chn_attr.mirror_en                      = HI_FALSE;
         pipe_info[i].chn_info[0].chn_attr.flip_en                        = HI_FALSE;
-        pipe_info[i].chn_info[0].chn_attr.depth                          = 2;
-        pipe_info[i].chn_info[0].chn_attr.frame_rate_ctrl.src_frame_rate = -1;
-        pipe_info[i].chn_info[0].chn_attr.frame_rate_ctrl.dst_frame_rate = -1;
-    }
-}
-
-hi_void sample_comm_vi_init_pipe_info(sample_sns_type sns_type, const hi_size *size, hi_vi_bind_pipe *bind_pipe,
-    sample_vi_pipe_info pipe_info[])
-{
-    hi_u32 i;
-
-    for (i = 0; i < bind_pipe->pipe_num; i++) {
-        /* pipe attr */
-        pipe_info[i].pipe_attr.pipe_bypass_mode               = HI_VI_PIPE_BYPASS_NONE;
-        pipe_info[i].pipe_attr.isp_bypass                     = HI_FALSE;
-        pipe_info[i].pipe_attr.size.width                     = size->width;
-        pipe_info[i].pipe_attr.size.height                    = size->height;
-        pipe_info[i].pipe_attr.pixel_format                   = HI_PIXEL_FORMAT_RGB_BAYER_12BPP;
-        pipe_info[i].pipe_attr.compress_mode                  = HI_COMPRESS_MODE_LINE;
-        pipe_info[i].pipe_attr.bit_width                      = HI_DATA_BIT_WIDTH_8;
-        pipe_info[i].pipe_attr.bit_align_mode                 = HI_VI_BIT_ALIGN_MODE_HIGH;
-        pipe_info[i].pipe_attr.frame_rate_ctrl.src_frame_rate = -1;
-        pipe_info[i].pipe_attr.frame_rate_ctrl.dst_frame_rate = -1;
-
-        if (sns_type == SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1) {
-            pipe_info[i].pipe_attr.pixel_format  = HI_PIXEL_FORMAT_RGB_BAYER_10BPP;
-            pipe_info[i].pipe_attr.compress_mode = HI_COMPRESS_MODE_NONE;
-        }
-
-        pipe_info[i].pipe_need_start = HI_TRUE;
-        pipe_info[i].isp_need_run = HI_TRUE;
-
-        /* pub attr */
-        sample_comm_isp_get_pub_attr_by_sns(sns_type, &pipe_info[i].isp_info.isp_pub_attr);
-
-        /* chn info */
-        pipe_info[i].chn_num = 1;
-        pipe_info[i].chn_info[0].vi_chn                                  = 0;
-        pipe_info[i].chn_info[0].chn_attr.size.width                     = size->width;
-        pipe_info[i].chn_info[0].chn_attr.size.height                    = size->height;
-        pipe_info[i].chn_info[0].chn_attr.pixel_format                   = HI_PIXEL_FORMAT_YVU_SEMIPLANAR_420;
-        pipe_info[i].chn_info[0].chn_attr.dynamic_range                  = HI_DYNAMIC_RANGE_SDR8;
-        pipe_info[i].chn_info[0].chn_attr.video_format                   = HI_VIDEO_FORMAT_LINEAR;
-        pipe_info[i].chn_info[0].chn_attr.compress_mode                  = HI_COMPRESS_MODE_NONE;
-        pipe_info[i].chn_info[0].chn_attr.mirror_en                      = HI_FALSE;
-        pipe_info[i].chn_info[0].chn_attr.flip_en                        = HI_FALSE;
         pipe_info[i].chn_info[0].chn_attr.depth                          = 0;
         pipe_info[i].chn_info[0].chn_attr.frame_rate_ctrl.src_frame_rate = -1;
         pipe_info[i].chn_info[0].chn_attr.frame_rate_ctrl.dst_frame_rate = -1;
     }
 }
 
-hi_void sample_comm_vi_get_default_vi_cfg(sample_sns_type sns_type, sample_vi_cfg *vi_cfg)
+/* [vi_pipe.0] &  [vi_chn.0.0]配置 */
+hi_void sample_comm_vi_init_pipe_info(sample_sns_type sns_type, const hi_size *size, hi_vi_bind_pipe *bind_pipe,
+    sample_vi_pipe_info pipe_info[])
 {
-    (hi_void)memset_s(vi_cfg, sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
-    if (sns_type == OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1)
-    {
-      /* sensor info */
-      sample_comm_vi_get_os04a10_sns_info(sns_type, &vi_cfg->sns_info);
-      /* mipi info */
-      sample_comm_vi_get_os04a10_mipi_info(sns_type, &vi_cfg->mipi_info);
-      /* dev info */
-      sample_comm_vi_get_os04a10_dev_info(sns_type, &vi_cfg->dev_info);
-      sample_print("sample_comm_vi_get_os04a10_dev_info!!!\n");
+    hi_u32 i;
+
+    for (i = 0; i < bind_pipe->pipe_num; i++) {
+        /* pipe attr [vi_pipe.0] 配置 */
+        pipe_info[i].pipe_attr.pipe_bypass_mode               = HI_VI_PIPE_BYPASS_NONE;
+        pipe_info[i].pipe_attr.isp_bypass                     			  = HI_FALSE;
+        pipe_info[i].pipe_attr.size.width                     				= size->width;
+        pipe_info[i].pipe_attr.size.height                    				= size->height;
+        pipe_info[i].pipe_attr.pixel_format                   			= HI_PIXEL_FORMAT_RGB_BAYER_12BPP;
+        pipe_info[i].pipe_attr.compress_mode                    = HI_COMPRESS_MODE_LINE;
+        pipe_info[i].pipe_attr.bit_width                                   = HI_DATA_BIT_WIDTH_8;
+        pipe_info[i].pipe_attr.bit_align_mode                      = HI_VI_BIT_ALIGN_MODE_HIGH;
+        pipe_info[i].pipe_attr.frame_rate_ctrl.src_frame_rate = -1;
+        pipe_info[i].pipe_attr.frame_rate_ctrl.dst_frame_rate = -1;
+
+		switch(sns_type)
+		{
+			case SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1:
+				pipe_info[i].pipe_attr.pixel_format         = HI_PIXEL_FORMAT_RGB_BAYER_10BPP;
+            	pipe_info[i].pipe_attr.compress_mode = HI_COMPRESS_MODE_NONE;
+				break;
+			case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+				pipe_info[i].pipe_attr.pixel_format         = HI_PIXEL_FORMAT_RGB_BAYER_10BPP;
+				pipe_info[i].pipe_attr.compress_mode = HI_COMPRESS_MODE_NONE;
+				//pipe_info[i].pipe_attr.isp_bypass            = HI_TRUE; // Added Debug 调试时用
+				break;
+			default:
+				break;
+		}
+
+        pipe_info[i].pipe_need_start = HI_TRUE;
+        pipe_info[i].isp_need_run      = HI_TRUE;
+
+        /* pub attr  [isp.0] 配置*/
+        sample_comm_isp_get_pub_attr_by_sns(sns_type, &pipe_info[i].isp_info.isp_pub_attr);
+
+        /* chn info [vi_chn.0.0] 配置 */
+        pipe_info[i].chn_num = 1;
+        pipe_info[i].chn_info[0].vi_chn                                          = 0;
+        pipe_info[i].chn_info[0].chn_attr.size.width                = size->width;
+        pipe_info[i].chn_info[0].chn_attr.size.height              = size->height;
+        pipe_info[i].chn_info[0].chn_attr.pixel_format          = HI_PIXEL_FORMAT_YVU_SEMIPLANAR_420;
+        pipe_info[i].chn_info[0].chn_attr.dynamic_range    = HI_DYNAMIC_RANGE_SDR8;
+        pipe_info[i].chn_info[0].chn_attr.video_format        = HI_VIDEO_FORMAT_LINEAR;
+        pipe_info[i].chn_info[0].chn_attr.compress_mode = HI_COMPRESS_MODE_NONE;
+        pipe_info[i].chn_info[0].chn_attr.mirror_en               = HI_FALSE;
+        pipe_info[i].chn_info[0].chn_attr.flip_en                     = HI_FALSE;
+        pipe_info[i].chn_info[0].chn_attr.depth                       = 0;
+        pipe_info[i].chn_info[0].chn_attr.frame_rate_ctrl.src_frame_rate = -1;
+        pipe_info[i].chn_info[0].chn_attr.frame_rate_ctrl.dst_frame_rate = -1;
     }
-    else 
-    {
-      /* sensor info */
-      sample_comm_vi_get_default_sns_info(sns_type, &vi_cfg->sns_info);
-      /* mipi info */
-      sample_comm_vi_get_default_mipi_info(sns_type, &vi_cfg->mipi_info);
-      /* dev info */
-      sample_comm_vi_get_default_dev_info(sns_type, &vi_cfg->dev_info);
-      sample_print("sample_comm_vi_get_default_dev_info!!!\n");
-    }
-      /* bind info */
-      sample_comm_vi_get_default_bind_info(sns_type, &vi_cfg->bind_pipe);
-      /* grp info */
-      sample_comm_vi_get_default_grp_info(sns_type, &vi_cfg->grp_info);
-      /* pipe info */
-      sample_comm_vi_get_default_pipe_info(sns_type, &vi_cfg->bind_pipe, vi_cfg->pipe_info);
 }
 
-hi_void sample_comm_vi_init_vi_cfg(sample_sns_type sns_type, hi_size *size, sample_vi_cfg *vi_cfg)
+/* 根据sensor类型获取视频输入(VI)默认配置信息, 包括sensor信息 */
+hi_void sample_comm_vi_get_default_vi_cfg(sample_sns_type sns_type, sample_vi_cfg *vi_cfg)
 {
+	switch (sns_type)
+	{
+	case SONY_IMX675_MIPI_5M_60FPS_10BIT/* constant-expression */:
+	{
+		/* code */
+		hi_size in_size;
+		sample_comm_vi_get_size_by_sns_type(sns_type, &in_size);
+		return sample_comm_vi_init_vi_cfg(sns_type,  &in_size, vi_cfg); // sensor1
+		break;
+	}
+	case  SONY_IMX464_MIPI_4M_30FPS_12BIT:
+	{
+		hi_size in_size;
+		sample_comm_vi_get_size_by_sns_type(sns_type, &in_size);
+		return sample_comm_vi_init_vi_cfg(sns_type, &in_size,  vi_cfg); // sensor1
+		break;
+	}
+	default:
+		break;
+	}
+
+	// 默认sensor0
     (hi_void)memset_s(vi_cfg, sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
 
     /* sensor info */
@@ -1009,7 +1306,44 @@ hi_void sample_comm_vi_init_vi_cfg(sample_sns_type sns_type, hi_size *size, samp
     /* grp info */
     sample_comm_vi_get_default_grp_info(sns_type, &vi_cfg->grp_info);
     /* pipe info */
-    sample_comm_vi_init_pipe_info(sns_type, size, &vi_cfg->bind_pipe, vi_cfg->pipe_info);
+    sample_comm_vi_get_default_pipe_info(sns_type, &vi_cfg->bind_pipe, vi_cfg->pipe_info);
+}
+
+hi_void sample_comm_vi_init_vi_cfg(sample_sns_type sns_type, hi_size *size, sample_vi_cfg *vi_cfg)
+{
+    (hi_void)memset_s(vi_cfg, sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
+
+	switch(sns_type)
+	{
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			/* sensor info */
+			sample_comm_vi_get_sns_info_by_dev_id(sns_type, 2, &vi_cfg->sns_info); /* [isp.0] 配置 */
+    		/* mipi info  [mipi_mode.0] 配置 */
+			sample_comm_vi_get_mipi_info_by_dev_id(sns_type, 2, &vi_cfg->mipi_info);  /* [mipi_mode.0] 配置 */
+    		/* dev info  [vi_dev.0] 配置 */
+			sample_comm_vi_get_dev_info_by_dev_id(sns_type, 2, &vi_cfg->dev_info); /* [vi_dev.0] 配置 */
+    		/* bind info */
+    		sample_comm_vi_get_default_bind_info(sns_type, &vi_cfg->bind_pipe); /* [vi_dev.0] BindPipeNum & BindPipeId 配置*/
+    		/* grp info */
+    		sample_comm_vi_get_default_grp_info(sns_type, &vi_cfg->grp_info); /* [vi_grp.0] 配置 */
+    		/* pipe info */
+    		sample_comm_vi_init_pipe_info(sns_type, size, &vi_cfg->bind_pipe, vi_cfg->pipe_info);
+			break;
+		default:
+			/* sensor info */
+    		sample_comm_vi_get_default_sns_info(sns_type, &vi_cfg->sns_info);
+    		/* mipi info  [mipi_mode.0] 配置 */
+    		sample_comm_vi_get_default_mipi_info(sns_type, &vi_cfg->mipi_info);  /* [mipi_mode.0] 配置 */
+    		/* dev info  [vi_dev.0] 配置 */
+    		sample_comm_vi_get_default_dev_info(sns_type, &vi_cfg->dev_info); /* [vi_dev.0] 配置 */
+    		/* bind info */
+    		sample_comm_vi_get_default_bind_info(sns_type, &vi_cfg->bind_pipe); /* [vi_dev.0] BindPipeNum & BindPipeId 配置*/
+    		/* grp info */
+    		sample_comm_vi_get_default_grp_info(sns_type, &vi_cfg->grp_info); /* [vi_grp.0] 配置 */
+    		/* pipe info */
+    		sample_comm_vi_init_pipe_info(sns_type, size, &vi_cfg->bind_pipe, vi_cfg->pipe_info);
+			break;
+	}
 }
 
 hi_s32 sample_comm_vi_set_vi_vpss_mode(hi_vi_vpss_mode_type mode_type, hi_vi_video_mode video_mode)
@@ -1045,17 +1379,20 @@ hi_s32 sample_comm_vi_set_vi_vpss_mode(hi_vi_vpss_mode_type mode_type, hi_vi_vid
     return HI_SUCCESS;
 }
 
+/* 设置MIPI Rx的Lane分布模式 */
 static hi_s32 sample_comm_vi_set_mipi_hs_mode(lane_divide_mode_t hs_mode)
 {
     hi_s32 fd;
     hi_s32 ret;
 
+	/* 供ioctl接口 */
     fd = open(MIPI_DEV_NAME, O_RDWR);
     if (fd < 0) {
         sample_print("open %s failed!\n", MIPI_DEV_NAME);
         return HI_FAILURE;
     }
 
+	/* 设置MIPI Rx的Lane分布 */
     ret = ioctl(fd, HI_MIPI_SET_HS_MODE, &hs_mode);
 
     close(fd);
@@ -1063,6 +1400,7 @@ static hi_s32 sample_comm_vi_set_mipi_hs_mode(lane_divide_mode_t hs_mode)
     return ret;
 }
 
+/* 调用 MIPI Rx的ioctl接口执行命令码 cmd  */
 static hi_s32 sample_comm_vi_mipi_ctrl_cmd(hi_u32 devno, hi_u32 cmd)
 {
     hi_s32 ret;
@@ -1081,6 +1419,7 @@ static hi_s32 sample_comm_vi_mipi_ctrl_cmd(hi_u32 devno, hi_u32 cmd)
     return ret;
 }
 
+/* 设置MIPI Rx设备属性 */
 static hi_s32 sample_comm_vi_set_mipi_combo_attr(const combo_dev_attr_t *combo_dev_attr)
 {
     hi_s32 fd;
@@ -1099,6 +1438,7 @@ static hi_s32 sample_comm_vi_set_mipi_combo_attr(const combo_dev_attr_t *combo_d
     return ret;
 }
 
+/* 设置MIPI扩展DATA TYPE的属性 */
 static hi_s32 sample_comm_vi_set_mipi_ext_data_type_attr(const ext_data_type_t *ext_data_type_attr)
 {
     hi_s32 fd;
@@ -1117,58 +1457,73 @@ static hi_s32 sample_comm_vi_set_mipi_ext_data_type_attr(const ext_data_type_t *
     return ret;
 }
 
+/* 
+  * 开启 MIPI Rx 采集单元
+  * MIPI Rx通过低电压差分信号接收原始视频数据,
+  * 将接收到的串行差分信号转化为DC时序后, 
+  * 传递给下一级模块VICAP（Video Capture）.
+ */
 static hi_s32 sample_comm_vi_start_mipi_rx(const sample_sns_info *sns_info, const sample_mipi_info *mipi_info)
 {
     hi_s32 ret;
 
+	/* 设置MIPI Rx的Lane分布模式 */
     ret = sample_comm_vi_set_mipi_hs_mode(mipi_info->divide_mode);
     if (ret != HI_SUCCESS) {
         sample_print("mipi rx set hs_mode failed!\n");
         return HI_FAILURE;
     }
 
+	/* 打开MIPI设备的时钟 */
     ret = sample_comm_vi_mipi_ctrl_cmd(mipi_info->mipi_dev, HI_MIPI_ENABLE_MIPI_CLOCK);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d enable mipi rx clock failed!\n", mipi_info->mipi_dev);
         return HI_FAILURE;
     }
 
+	/* 复位MIPI */
     ret = sample_comm_vi_mipi_ctrl_cmd(mipi_info->mipi_dev, HI_MIPI_RESET_MIPI);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d reset mipi rx failed!\n", mipi_info->mipi_dev);
         return HI_FAILURE;
     }
 
+	/* 打开SENSOR的时钟 */
     ret = sample_comm_vi_mipi_ctrl_cmd(sns_info->sns_clk_src, HI_MIPI_ENABLE_SENSOR_CLOCK);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d enable sensor clock failed!\n", sns_info->sns_clk_src);
         return HI_FAILURE;
     }
 
+	/* 复位SENSOR */
     ret = sample_comm_vi_mipi_ctrl_cmd(sns_info->sns_rst_src, HI_MIPI_RESET_SENSOR);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d reset sensor failed!\n", sns_info->sns_rst_src);
         return HI_FAILURE;
     }
 
+	/* 设置MIPI Rx设备属性 */
     ret = sample_comm_vi_set_mipi_combo_attr(&mipi_info->combo_dev_attr);
     if (ret != HI_SUCCESS) {
         sample_print("mipi rx set combo attr failed!\n");
         return HI_FAILURE;
     }
 
+	/* 设置MIPI扩展DATA TYPE的属性 */
     ret = sample_comm_vi_set_mipi_ext_data_type_attr(&mipi_info->ext_data_type_attr);
     if (ret != HI_SUCCESS) {
         sample_print("mipi rx set ext data attr failed!\n");
         return HI_FAILURE;
     }
 
+	/* 撤销复位MIPI Rx */
     ret = sample_comm_vi_mipi_ctrl_cmd(mipi_info->mipi_dev, HI_MIPI_UNRESET_MIPI);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d unreset mipi rx failed!\n", mipi_info->mipi_dev);
         return HI_FAILURE;
     }
 
+	/* 撤销复位sensor */
     ret = sample_comm_vi_mipi_ctrl_cmd(sns_info->sns_rst_src, HI_MIPI_UNRESET_SENSOR);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d unreset sensor failed!\n", sns_info->sns_rst_src);
@@ -1178,35 +1533,48 @@ static hi_s32 sample_comm_vi_start_mipi_rx(const sample_sns_info *sns_info, cons
     return HI_SUCCESS;
 }
 
+/* 停止 MIPI Rx 采集单元*/
 static hi_void sample_comm_vi_stop_mipi_rx(const sample_sns_info *sns_info, const sample_mipi_info *mipi_info)
 {
     hi_s32 ret;
 
+	/* 复位MIPI Rx */
     ret = sample_comm_vi_mipi_ctrl_cmd(mipi_info->mipi_dev, HI_MIPI_RESET_MIPI);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d reset mipi rx failed!\n", mipi_info->mipi_dev);
     }
 
+	/* 关闭MIPI设备的时钟 */
     ret = sample_comm_vi_mipi_ctrl_cmd(mipi_info->mipi_dev, HI_MIPI_DISABLE_MIPI_CLOCK);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d disable mipi rx clock failed!\n", mipi_info->mipi_dev);
     }
 
+	/* 复位sensor */
     ret = sample_comm_vi_mipi_ctrl_cmd(sns_info->sns_rst_src, HI_MIPI_RESET_SENSOR);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d reset sensor failed!\n", sns_info->sns_rst_src);
     }
 
+	/* 关闭SENSOR的时钟 */
     ret = sample_comm_vi_mipi_ctrl_cmd(sns_info->sns_clk_src, HI_MIPI_DISABLE_SENSOR_CLOCK);
     if (ret != HI_SUCCESS) {
         sample_print("devno %d disable sensor clock failed!\n", sns_info->sns_clk_src);
     }
 }
 
+/*
+  * 开启 VI 设备
+  * 参数:
+  * vi_dev - VI设备号
+  * dev_attr - VI设备属性
+  * bas_attr - VI BayerScale属性
+*/
 static hi_s32 sample_comm_vi_start_dev(hi_vi_dev vi_dev, const hi_vi_dev_attr *dev_attr, const hi_vi_bas_attr *bas_attr)
 {
     hi_s32 ret;
 
+	/* 设置VI设备属性 */
     ret = hi_mpi_vi_set_dev_attr(vi_dev, dev_attr);
     if (ret != HI_SUCCESS) {
         sample_print("vi set dev attr failed with 0x%x!\n", ret);
@@ -1214,6 +1582,7 @@ static hi_s32 sample_comm_vi_start_dev(hi_vi_dev vi_dev, const hi_vi_dev_attr *d
     }
 
     if ((bas_attr->enable == HI_TRUE) && (vi_dev == 0)) {
+		/* 设置VI BayerScale属性 */
         ret = hi_mpi_vi_set_bas_attr(vi_dev, bas_attr);
         if (ret != HI_SUCCESS) {
             sample_print("vi set bas attr failed with 0x%x!\n", ret);
@@ -1221,6 +1590,7 @@ static hi_s32 sample_comm_vi_start_dev(hi_vi_dev vi_dev, const hi_vi_dev_attr *d
         }
     }
 
+	/* 启用VI设备 */
     ret = hi_mpi_vi_enable_dev(vi_dev);
     if (ret != HI_SUCCESS) {
         sample_print("vi enable dev failed with 0x%x!\n", ret);
@@ -1240,6 +1610,7 @@ static hi_void sample_comm_vi_stop_dev(hi_vi_dev vi_dev)
     }
 }
 
+/* VI 设备绑定PIPE */
 static hi_s32 sample_comm_vi_dev_bind_pipe(hi_vi_dev vi_dev, const hi_vi_bind_pipe *bind_pipe)
 {
     hi_u32 i;
@@ -1247,6 +1618,7 @@ static hi_s32 sample_comm_vi_dev_bind_pipe(hi_vi_dev vi_dev, const hi_vi_bind_pi
     hi_s32 ret;
 
     for (i = 0; i < bind_pipe->pipe_num; i++) {
+		/* 一对一绑定Dev和Pipe */
         ret = hi_mpi_vi_bind(vi_dev, bind_pipe->pipe_id[i]);
         if (ret != HI_SUCCESS) {
             sample_print("vi dev(%d) bind pipe(%d) failed!\n", vi_dev, bind_pipe->pipe_id[i]);
@@ -1258,6 +1630,7 @@ static hi_s32 sample_comm_vi_dev_bind_pipe(hi_vi_dev vi_dev, const hi_vi_bind_pi
 
 exit:
     for (j = i - 1; j >= 0; j--) {
+		/* 一对一解绑定Dev和Pipe */
         ret = hi_mpi_vi_unbind(vi_dev, bind_pipe->pipe_id[j]);
         if (ret != HI_SUCCESS) {
             sample_print("vi dev(%d) unbind pipe(%d) failed!\n", vi_dev, bind_pipe->pipe_id[j]);
@@ -1279,12 +1652,13 @@ static hi_void sample_comm_vi_dev_unbind_pipe(hi_vi_dev vi_dev, const hi_vi_bind
     }
 }
 
+/* 设置VI的wdr合成组的属性 */
 static hi_s32 sample_comm_vi_set_grp_info(const sample_vi_grp_info *grp_info)
 {
     hi_s32 ret;
     hi_u32 i;
-    sample_print("sample_comm_vi_set_grp_info!!!\n");
     for (i = 0; i < grp_info->grp_num; i++) {
+		/* 设置wdr合成组的属性 */
         ret = hi_mpi_vi_set_wdr_fusion_grp_attr(grp_info->fusion_grp[i], &grp_info->fusion_grp_attr[i]);
         if (ret != HI_SUCCESS) {
             sample_print("vi set wdr fusion grp attr failed!\n");
@@ -1295,21 +1669,24 @@ static hi_s32 sample_comm_vi_set_grp_info(const sample_vi_grp_info *grp_info)
     return HI_SUCCESS;
 }
 
+/* 启用VI通道 */
 static hi_s32 sample_comm_vi_start_chn(hi_vi_pipe vi_pipe, const sample_vi_chn_info chn_info[], hi_u32 chn_num)
 {
     hi_u32 i;
     hi_s32 ret;
 
     for (i = 0; i < chn_num; i++) {
-        hi_vi_chn vi_chn = chn_info[i].vi_chn;
+        hi_vi_chn vi_chn = chn_info[i].vi_chn; /* VI通道号 */
         const hi_vi_chn_attr *chn_attr = &chn_info[i].chn_attr;
 
+		/* 设置VI通道属性 */
         ret = hi_mpi_vi_set_chn_attr(vi_pipe, vi_chn, chn_attr);
         if (ret != HI_SUCCESS) {
             sample_print("vi set chn(%d) attr failed with 0x%x!\n", vi_chn, ret);
             return HI_FAILURE;
         }
 
+		/* 启用VI通道 */
         ret = hi_mpi_vi_enable_chn(vi_pipe, vi_chn);
         if (ret != HI_SUCCESS) {
             sample_print("vi enable chn(%d) failed with 0x%x!\n", vi_chn, ret);
@@ -1359,10 +1736,12 @@ static hi_s32 sample_comm_vi_stop_chn(hi_vi_pipe vi_pipe, const sample_vi_chn_in
     return HI_SUCCESS;
 }
 
+/* 启用 VI 一个 PIPE */
 static hi_s32 sample_comm_vi_start_one_pipe(hi_vi_pipe vi_pipe, const sample_vi_pipe_info *pipe_info)
 {
     hi_s32 ret;
 
+	/* 创建一个VI PIPE */
     ret = hi_mpi_vi_create_pipe(vi_pipe, &pipe_info->pipe_attr);
     if (ret != HI_SUCCESS) {
         sample_print("vi create pipe(%d) failed with 0x%x!\n", vi_pipe, ret);
@@ -1370,6 +1749,7 @@ static hi_s32 sample_comm_vi_start_one_pipe(hi_vi_pipe vi_pipe, const sample_vi_
     }
 
     if (pipe_info->pipe_need_start == HI_TRUE) {
+		/* 启用 VI PIPE */
         ret = hi_mpi_vi_start_pipe(vi_pipe);
         if (ret != HI_SUCCESS) {
             sample_print("vi start pipe(%d) failed with 0x%x!\n", vi_pipe, ret);
@@ -1377,6 +1757,7 @@ static hi_s32 sample_comm_vi_start_one_pipe(hi_vi_pipe vi_pipe, const sample_vi_
         }
     }
 
+	/* 启用VI通道 */
     ret = sample_comm_vi_start_chn(vi_pipe, pipe_info->chn_info, pipe_info->chn_num);
     if (ret != HI_SUCCESS) {
         sample_print("vi pipe(%d) start chn failed!\n", vi_pipe);
@@ -1386,9 +1767,12 @@ static hi_s32 sample_comm_vi_start_one_pipe(hi_vi_pipe vi_pipe, const sample_vi_
     return HI_SUCCESS;
 
 start_chn_failed:
+	/* 禁用VI PIPE */
     hi_mpi_vi_stop_pipe(vi_pipe);
 start_pipe_failed:
+	/* 销毁一个VI PIPE */
     hi_mpi_vi_destroy_pipe(vi_pipe);
+
     return HI_FAILURE;
 }
 
@@ -1412,6 +1796,7 @@ static hi_void sample_comm_vi_stop_one_pipe(hi_vi_pipe vi_pipe, const sample_vi_
     }
 }
 
+/* 启用 VI  所有 PIPE */
 static hi_s32 sample_comm_vi_start_pipe(const hi_vi_bind_pipe *bind_pipe, const sample_vi_pipe_info pipe_info[])
 {
     hi_s32 i;
@@ -1419,6 +1804,7 @@ static hi_s32 sample_comm_vi_start_pipe(const hi_vi_bind_pipe *bind_pipe, const 
 
     for (i = 0; i < (hi_s32)bind_pipe->pipe_num; i++) {
         hi_vi_pipe vi_pipe = bind_pipe->pipe_id[i];
+		/* 启用 VI 一个 PIPE */
         ret = sample_comm_vi_start_one_pipe(vi_pipe, &pipe_info[i]);
         if (ret != HI_SUCCESS) {
             goto exit;
@@ -1450,8 +1836,7 @@ static hi_s32 sample_comm_vi_register_sensor_lib(hi_vi_pipe vi_pipe, hi_u8 pipe_
     hi_u32 bus_id;
     sample_sns_type sns_type = vi_cfg->sns_info.sns_type;
 
-    sample_print("sns_type = %d\n", sns_type);
-
+	/* isp 注册 sensor */
     ret = sample_comm_isp_sensor_regiter_callback(vi_pipe, sns_type);
     if (ret != HI_SUCCESS) {
         printf("register sensor to ISP %d failed\n", vi_pipe);
@@ -1464,20 +1849,21 @@ static hi_s32 sample_comm_vi_register_sensor_lib(hi_vi_pipe vi_pipe, hi_u8 pipe_
         bus_id = vi_cfg->sns_info.bus_id;
     }
 
-    sample_print("vi_pipe = %d, bus_id = %d\n", vi_pipe, bus_id);
-
+	/* 设置 sensor与I2C/SPI的绑定关系 */
     ret = sample_comm_isp_bind_sns(vi_pipe, sns_type, bus_id);
     if (ret != HI_SUCCESS) {
         printf("register sensor bus id %d failed\n", bus_id);
         goto exit0;
     }
 
+	/* 向ISP注册AE库 */
     ret = sample_comm_isp_ae_lib_callback(vi_pipe);
     if (ret != HI_SUCCESS) {
         printf("isp_mst_comm_ae_lib_callback failed\n");
         goto exit0;
     }
 
+	/* 向ISP注册AWB库 */
     ret = sample_comm_isp_awb_lib_callback(vi_pipe);
     if (ret != HI_SUCCESS) {
         printf("isp_mst_comm_awb_lib_callback failed\n");
@@ -1487,6 +1873,7 @@ static hi_s32 sample_comm_vi_register_sensor_lib(hi_vi_pipe vi_pipe, hi_u8 pipe_
     return HI_SUCCESS;
 
 exit1:
+	/* 向ISP注销AE库 */
     sample_comm_isp_ae_lib_uncallback(vi_pipe);
 exit0:
     sample_comm_isp_sensor_unregiter_callback(vi_pipe);
@@ -1612,11 +1999,14 @@ static hi_void sample_comm_vi_stop_isp(const sample_vi_cfg *vi_cfg)
     }
 }
 
+/* 开启 VI */
 hi_s32 sample_comm_vi_start_vi(const sample_vi_cfg *vi_cfg)
 {
+	printf("----- sample_comm_vi_start_vi -----\n");
     hi_s32 ret;
     hi_vi_dev vi_dev;
-    sample_print("huxinjie 1105\n");
+
+	/* 开启 MIPI Rx 采集单元 */
     ret = sample_comm_vi_start_mipi_rx(&vi_cfg->sns_info, &vi_cfg->mipi_info);
     if (ret != HI_SUCCESS) {
         sample_print("start mipi rx failed!\n");
@@ -1624,24 +2014,28 @@ hi_s32 sample_comm_vi_start_vi(const sample_vi_cfg *vi_cfg)
     }
 
     vi_dev   = vi_cfg->dev_info.vi_dev;
+	/* 开启 VI 设备 */
     ret = sample_comm_vi_start_dev(vi_dev, &vi_cfg->dev_info.dev_attr, &vi_cfg->dev_info.bas_attr);
     if (ret != HI_SUCCESS) {
         sample_print("start dev failed!\n");
         goto start_dev_failed;
     }
 
+	/* VI 设备绑定PIPE */
     ret = sample_comm_vi_dev_bind_pipe(vi_dev, &vi_cfg->bind_pipe);
     if (ret != HI_SUCCESS) {
         sample_print("dev bind pipe failed!\n");
         goto dev_bind_pipe_failed;
     }
 
+	/* 设置VI的wdr合成组的属性 */
     ret = sample_comm_vi_set_grp_info(&vi_cfg->grp_info);
     if (ret != HI_SUCCESS) {
         sample_print("set grp info failed!\n");
         goto set_grp_info_failed;
     }
 
+	/* 启用 VI  所有 PIPE */
     ret = sample_comm_vi_start_pipe(&vi_cfg->bind_pipe, vi_cfg->pipe_info);
     if (ret != HI_SUCCESS) {
         sample_print("start pipe failed!\n");
@@ -1669,6 +2063,7 @@ start_mipi_rx_failed:
     return HI_FAILURE;
 }
 
+/* 停止 VI */
 hi_void sample_comm_vi_stop_vi(const sample_vi_cfg *vi_cfg)
 {
     hi_vi_dev vi_dev = vi_cfg->dev_info.vi_dev;
@@ -1742,6 +2137,7 @@ hi_s32 sample_comm_vi_mode_switch_start_vi(const sample_vi_cfg *vi_cfg, hi_bool 
     hi_s32 ret;
     hi_vi_dev vi_dev;
 
+	/* 开启 MIPI Rx 采集单元 */
     ret = sample_comm_vi_start_mipi_rx(&vi_cfg->sns_info, &vi_cfg->mipi_info);
     if (ret != HI_SUCCESS) {
         sample_print("start mipi rx failed!\n");
@@ -1749,18 +2145,21 @@ hi_s32 sample_comm_vi_mode_switch_start_vi(const sample_vi_cfg *vi_cfg, hi_bool 
     }
 
     vi_dev   = vi_cfg->dev_info.vi_dev;
+	/* 开启 VI 设备 */
     ret = sample_comm_vi_start_dev(vi_dev, &vi_cfg->dev_info.dev_attr, &vi_cfg->dev_info.bas_attr);
     if (ret != HI_SUCCESS) {
         sample_print("start dev failed!\n");
         goto start_dev_failed;
     }
 
+	/* VI 设备绑定PIPE */
     ret = sample_comm_vi_dev_bind_pipe(vi_dev, &vi_cfg->bind_pipe);
     if (ret != HI_SUCCESS) {
         sample_print("dev bind pipe failed!\n");
         goto dev_bind_pipe_failed;
     }
 
+	/* 设置VI的wdr合成组的属性 */
     ret = sample_comm_vi_set_grp_info(&vi_cfg->grp_info);
     if (ret != HI_SUCCESS) {
         sample_print("set grp info failed!\n");
@@ -1807,6 +2206,7 @@ static hi_s32 sample_comm_vi_mode_switch_start_one_pipe_chn(hi_vi_pipe vi_pipe, 
         goto start_pipe_failed;
     }
 
+	/* 启用VI通道 */
     ret = sample_comm_vi_start_chn(vi_pipe, pipe_info->chn_info, pipe_info->chn_num);
     if (ret != HI_SUCCESS) {
         sample_print("vi pipe(%d) start chn failed!\n", vi_pipe);
@@ -2106,6 +2506,11 @@ hi_void sample_comm_vi_free_frame_blk(sample_vi_user_frame_info *user_frame_info
     user_frame_info->vb_blk = HI_VB_INVALID_HANDLE;
 }
 
+/// @brief 
+/// @param get_frame_vb_cfg 
+/// @param user_frame_info 
+/// @param frame_cnt 图像帧数
+/// @return 
 hi_s32 sample_comm_vi_get_frame_blk(sample_vi_get_frame_vb_cfg *get_frame_vb_cfg,
                                     sample_vi_user_frame_info user_frame_info[], hi_s32 frame_cnt)
 {
@@ -2156,6 +2561,13 @@ hi_void sample_comm_vi_release_frame_blk(sample_vi_user_frame_info user_frame_in
     hi_mpi_vb_destroy_pool(pool_id);
 }
 
+/// @brief 获取 FPN 标定黑帧信息
+/// @param vi_pipe vi_pipe号
+/// @param pixel_format 
+/// @param compress_mode 
+/// @param user_frame_info 
+/// @param blk_cnt 缓存块数量
+/// @return 
 static hi_s32 sample_comm_vi_get_fpn_frame_info(hi_vi_pipe vi_pipe,
                                                 hi_pixel_format pixel_format, hi_compress_mode compress_mode,
                                                 sample_vi_user_frame_info *user_frame_info, hi_s32 blk_cnt)
@@ -2186,6 +2598,13 @@ static hi_s32 sample_comm_vi_get_fpn_frame_info(hi_vi_pipe vi_pipe,
     return HI_SUCCESS;
 }
 
+/// @brief 获取 FPN 标定黑帧信息
+/// @param vi_pipe vi_pipe号
+/// @param pixel_format 黑帧的像素格式
+/// @param compress_mode 黑帧压缩模式
+/// @param user_frame_info 
+/// @param blk_cnt MPP公共视频缓存池内缓存块数量
+/// @return 
 static hi_s32 sample_comm_vi_get_fpn_calibrate_frame_info(hi_vi_pipe vi_pipe, hi_pixel_format pixel_format,
                                                           hi_compress_mode compress_mode,
                                                           sample_vi_user_frame_info *user_frame_info, hi_s32 blk_cnt)
@@ -2208,6 +2627,11 @@ static hi_s32 sample_comm_vi_get_fpn_calibrate_frame_info(hi_vi_pipe vi_pipe, hi
     return HI_SUCCESS;
 }
 
+/// @brief 获取 FPN 标定时保存黑帧的文件名
+/// @param video_frame 黑帧图像
+/// @param file_name 
+/// @param length 
+/// @return 
 static hi_void sample_comm_vi_get_fpn_file_name(hi_video_frame *video_frame, hi_char *file_name, hi_u32 length)
 {
     (hi_void)snprintf_s(file_name, length, length - 1, "./FPN_frame_%dx%d_%dbit.raw",
@@ -2227,22 +2651,28 @@ static hi_s32 sample_comm_vi_get_fpn_file_name_iso(hi_video_frame *video_frame, 
     return HI_SUCCESS;
 }
 
+/// @brief 打印去 FPN 的标定黑帧信息
+/// @param fpn_frame_info 去 FPN 的标定黑帧信息
+/// @param pfd 写回内存的标定好的黑帧文件
+/// @return 
 hi_void sample_comm_vi_save_fpn_file(hi_isp_fpn_frame_info *fpn_frame_info, FILE *pfd)
 {
     hi_u8 *virt_addr;
-    hi_u32 fpn_height;
+    //hi_u32 fpn_height;
     hi_s32 i;
 
-    fpn_height = fpn_frame_info->fpn_frame.video_frame.height;
+    //fpn_height = fpn_frame_info->fpn_frame.video_frame.height;
+	/* 图像数据虚拟地址。内核态虚拟地址。*/
     virt_addr = (hi_u8 *)fpn_frame_info->fpn_frame.video_frame.virt_addr[0];
 
     /* save Y
         * ---------------------------------------------------------------- */
     (hi_void)fprintf(stderr,
-                     "FPN: saving......Raw data......stide: %d, width: %d, "
+                     "FPN: saving......Raw data......\nstride: %d, width: %d, "
                      "height: %d, iso: %d.\n",
                      fpn_frame_info->fpn_frame.video_frame.stride[0],
-                     fpn_frame_info->fpn_frame.video_frame.width, fpn_height,
+                     fpn_frame_info->fpn_frame.video_frame.width, 
+					 fpn_frame_info->fpn_frame.video_frame.height,
                      fpn_frame_info->iso);
     (hi_void)fprintf(stderr, "phys addr: 0x%lx\n", (hi_ulong)fpn_frame_info->fpn_frame.video_frame.phys_addr[0]);
     (hi_void)fprintf(stderr, "please wait a moment to save FPN raw data.\n");
@@ -2308,6 +2738,12 @@ exit:
     return HI_NULL;
 }
 
+/// @brief VI 模块 FPN 多次标定
+/// @param vi_pipe vi_pipe号
+/// @param user_frame_info [out] FPN 标定出来的黑帧帧信息
+/// @param calibrate_attr [in]&[out] FPN 标定属性
+/// @param calib_cnt [in]FPN 标定次数
+/// @return 
 static hi_s32 sample_comm_vi_fpn_multi_calibrate(hi_vi_pipe vi_pipe, sample_vi_user_frame_info *user_frame_info,
     hi_isp_fpn_calibrate_attr *calibrate_attr, hi_s32 calib_cnt)
 {
@@ -2318,6 +2754,7 @@ static hi_s32 sample_comm_vi_fpn_multi_calibrate(hi_vi_pipe vi_pipe, sample_vi_u
         (hi_void)memcpy_s(&calibrate_attr->fpn_cali_frame.fpn_frame, sizeof(hi_video_frame_info),
                           &user_frame_info[i].frame_info, sizeof(hi_video_frame_info));
 
+		// FPN 标定
         ret = hi_mpi_isp_fpn_calibrate(vi_pipe, calibrate_attr);
         if (ret != HI_SUCCESS) {
             sample_print("vi fpn calibrate failed!\n");
@@ -2330,6 +2767,12 @@ static hi_s32 sample_comm_vi_fpn_multi_calibrate(hi_vi_pipe vi_pipe, sample_vi_u
     return HI_SUCCESS;
 }
 
+/// @brief VI 模块 FPN 标定过程（两轮标定）
+/// @param vi_pipe  vi_pipe号
+/// @param user_frame_info 
+/// @param calibrate_attr 
+/// @param calib_cnt 标定次数
+/// @return 
 static hi_s32 sample_comm_vi_fpn_calibrate_process(hi_vi_pipe vi_pipe, sample_vi_user_frame_info *user_frame_info,
     hi_isp_fpn_calibrate_attr *calibrate_attr, hi_s32 calib_cnt)
 {
@@ -2339,7 +2782,7 @@ static hi_s32 sample_comm_vi_fpn_calibrate_process(hi_vi_pipe vi_pipe, sample_vi
     sample_vi_send_frame_info vi_send_frame_info;
 
     /* first calibrate process, save 8 dark frames to user_frame_info */
-    calibrate_attr->fpn_mode = HI_ISP_FPN_OUT_MODE_HIGH;
+    calibrate_attr->fpn_mode = HI_ISP_FPN_OUT_MODE_HIGH; // 标定黑帧输出的像素值进行左对齐
     ret = sample_comm_vi_fpn_multi_calibrate(vi_pipe, user_frame_info, calibrate_attr, calib_cnt);
     if (ret != TD_SUCCESS) {
         return ret;
@@ -2358,8 +2801,8 @@ static hi_s32 sample_comm_vi_fpn_calibrate_process(hi_vi_pipe vi_pipe, sample_vi
     }
 
     /* second calibrate process */
-    calibrate_attr->frame_num = calib_cnt;
-    calibrate_attr->fpn_mode = HI_ISP_FPN_OUT_MODE_NORM;
+    calibrate_attr->frame_num = calib_cnt; // 标定帧数
+    calibrate_attr->fpn_mode = HI_ISP_FPN_OUT_MODE_NORM; // 标定黑帧输出的像素值进行右对齐
     ret = sample_comm_vi_fpn_multi_calibrate(vi_pipe, final_user_frame_info, calibrate_attr, 1);
     if (ret != HI_SUCCESS) {
         goto exit;
@@ -2372,34 +2815,44 @@ exit:
     return ret;
 }
 
+/// @brief VI 模块 FPN 标定
+/// @param vi_pipe vi_pipe号
+/// @param calibration_cfg [in] VI 模块 FPN 标定配置
+/// @return 
 hi_s32 sample_comm_vi_fpn_calibrate(hi_vi_pipe vi_pipe, sample_vi_fpn_calibration_cfg *calibration_cfg)
 {
     hi_s32 ret, i;
     const hi_vi_chn vi_chn = 0;
     FILE *pfd = HI_NULL;
     sample_vi_user_frame_info user_frame_info[FPN_CALIB_TIMES + 1];
-    hi_isp_fpn_calibrate_attr calibrate_attr;
+    hi_isp_fpn_calibrate_attr calibrate_attr; // 去 FPN 标定属性
 
     hi_char fpn_file_name[FPN_FILE_NAME_LENGTH];
 
     printf("please turn off camera aperture to start calibrate!\nhit any key ,start calibrate!\n");
     getchar();
 
+	// 禁用VI通道
     ret = hi_mpi_vi_disable_chn(vi_pipe, vi_chn);
     if (ret != HI_SUCCESS) {
         return HI_FAILURE;
     }
 
-    calibrate_attr.threshold = calibration_cfg->threshold;
-    calibrate_attr.frame_num = calibration_cfg->frame_num;
-    calibrate_attr.fpn_type  = calibration_cfg->fpn_type;
-    ret = sample_comm_vi_get_fpn_calibrate_frame_info(vi_pipe, HI_PIXEL_FORMAT_RGB_BAYER_16BPP,
+    calibrate_attr.threshold = calibration_cfg->threshold; // 标定时的阈值
+    calibrate_attr.frame_num = calibration_cfg->frame_num; // 标定的帧数
+    calibrate_attr.fpn_type  = calibration_cfg->fpn_type; // 标定的类型
+	/* 获取 FPN 标定黑帧信息, 视频缓存块数量 = 标定次数 + 1 */
+	ret = sample_comm_vi_get_fpn_calibrate_frame_info(vi_pipe, calibration_cfg->pixel_format,
         calibration_cfg->compress_mode, user_frame_info, FPN_CALIB_TIMES + 1);
+    // ret = sample_comm_vi_get_fpn_calibrate_frame_info(vi_pipe, HI_PIXEL_FORMAT_RGB_BAYER_16BPP,
+    //     calibration_cfg->compress_mode, user_frame_info, FPN_CALIB_TIMES + 1);
     if (ret != HI_SUCCESS) {
+		// 启用VI通道
         hi_mpi_vi_enable_chn(vi_pipe, vi_chn);
         return HI_FAILURE;
     }
 
+	// VI 模块 FPN 标定过程（两轮标定）
     ret = sample_comm_vi_fpn_calibrate_process(vi_pipe, user_frame_info, &calibrate_attr, FPN_CALIB_TIMES);
     if (ret != HI_SUCCESS) {
         sample_print("vi fpn calibrate failed!\n");
@@ -2411,7 +2864,7 @@ hi_s32 sample_comm_vi_fpn_calibrate(hi_vi_pipe vi_pipe, sample_vi_fpn_calibratio
         printf("offset[%d] = 0x%x, ", i, calibrate_attr.fpn_cali_frame.offset[i]);
     }
     printf("frame_size = %d, iso = %d\n", calibrate_attr.fpn_cali_frame.frm_size, calibrate_attr.fpn_cali_frame.iso);
-
+	// 获取 FPN 标定时保存黑帧的文件名
     sample_comm_vi_get_fpn_file_name(&calibrate_attr.fpn_cali_frame.fpn_frame.video_frame,
                                      fpn_file_name, FPN_FILE_NAME_LENGTH);
     printf("save dark frame file: %s!\n", fpn_file_name);
@@ -2421,12 +2874,14 @@ hi_s32 sample_comm_vi_fpn_calibrate(hi_vi_pipe vi_pipe, sample_vi_fpn_calibratio
         goto exit;
     }
 
+	// 打印去 FPN 的标定黑帧信息
     sample_comm_vi_save_fpn_file(&calibrate_attr.fpn_cali_frame, pfd);
 
     (hi_void)fclose(pfd);
 
 exit:
     sample_comm_vi_release_frame_blk(user_frame_info, FPN_CALIB_TIMES + 1);
+	// 启用VI通道
     ret = hi_mpi_vi_enable_chn(vi_pipe, vi_chn);
     return ret;
 }
@@ -2464,7 +2919,7 @@ hi_s32 sample_comm_vi_enable_fpn_correction(hi_vi_pipe vi_pipe, sample_vi_fpn_co
     }
     (hi_void)memcpy_s(&correction_attr.fpn_frm_info.fpn_frame, sizeof(hi_video_frame_info),
                       &user_frame_info->frame_info, sizeof(hi_video_frame_info));
-
+	// 获取 FPN 标定时保存黑帧的文件名
     sample_comm_vi_get_fpn_file_name(&correction_attr.fpn_frm_info.fpn_frame.video_frame,
                                      fpn_file_name, FPN_FILE_NAME_LENGTH);
     pfd = fopen(fpn_file_name, "rb");
@@ -2579,10 +3034,12 @@ hi_s32 sample_comm_vi_disable_fpn_correction(hi_vi_pipe vi_pipe, sample_vi_fpn_c
     return HI_SUCCESS;
 }
 
+/* 启用 VI  虚拟 PIPE */
 hi_s32 sample_comm_vi_start_virt_pipe(const sample_vi_cfg *vi_cfg)
 {
     hi_s32 ret;
 
+	/* 启用 VI  所有 PIPE */
     ret = sample_comm_vi_start_pipe(&vi_cfg->bind_pipe, vi_cfg->pipe_info);
     if (ret != HI_SUCCESS) {
         sample_print("start pipe failed!\n");

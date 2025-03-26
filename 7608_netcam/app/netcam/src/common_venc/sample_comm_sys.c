@@ -16,6 +16,18 @@
 #include <sys/mman.h>
 #include <signal.h>
 
+#define sample_mem_check_open_return() \
+    do { \
+        if (g_sample_mem_dev <= 0) { \
+            g_sample_mem_dev = open("/dev/mem", O_RDWR | O_SYNC); \
+            if (g_sample_mem_dev < 0) { \
+                perror("open dev/mem error"); \
+                return HI_NULL; \
+            } \
+        } \
+    } while (0)
+
+static hi_s32 g_sample_mem_dev = -1;
 
 static hi_mpp_chn g_sample_mpp_chn[] = {
     {HI_ID_VI, HI_VI_MAX_DEV_NUM, HI_VI_MAX_CHN_NUM},
@@ -25,7 +37,7 @@ static hi_mpp_chn g_sample_mpp_chn[] = {
     {HI_ID_VDEC, 1, HI_VDEC_MAX_CHN_NUM}
 };
 
-/* The order of g_sample_pic_size's element must be consistent with the enum value defined in "hi_pic_size". */
+/* 图像大小 The order of g_sample_pic_size's element must be consistent with the enum value defined in "hi_pic_size". */
 static hi_size g_sample_pic_size[PIC_BUTT] = {
     { 352,  288  },  /* PIC_CIF */
     { 640,  360  },  /* PIC_360P */
@@ -51,7 +63,6 @@ static hi_size g_sample_pic_size[PIC_BUTT] = {
     { 2560, 1600 },  /* PIC_2560X1600 */
     { 2592, 1520 },  /* PIC_2592X1520 */
     { 2592, 1944 },  /* PIC_2592X1944 */
-    { 2688, 1520 },  /* PIC_2688X1520 */
     { 3840, 2160 },  /* PIC_3840X2160 */
     { 4096, 2160 },  /* PIC_4096X2160 */
     { 3000, 3000 },  /* PIC_3000X3000 */
@@ -72,6 +83,84 @@ hi_void sample_sys_signal(void (*func)(int))
     sigaction(SIGTERM, &sa, HI_NULL);
 }
 #endif
+
+hi_void *sample_sys_io_mmap(hi_u64 phy_addr, hi_u32 size)
+{
+    hi_u32 diff;
+    hi_u64 page_phy;
+    hi_u8 *page_addr = HI_NULL;
+    hi_ulong page_size;
+
+    sample_mem_check_open_return();
+
+    /* page_size will be 0 when size is 0 and diff is 0, and then mmap will be error(invalid argument) */
+    if (!size) {
+        printf("func: %s size can't be 0.\n", __FUNCTION__);
+        return HI_NULL;
+    }
+
+    /* the mmap address should align with page */
+    page_phy = phy_addr & 0xfffffffffffff000ULL;
+    diff = phy_addr - page_phy;
+
+    /* the mmap size should be multiples of 1024 */
+    page_size = ((size + diff - 1) & 0xfffff000UL) + 0x1000;
+
+    page_addr = mmap((void *)0, page_size, PROT_READ | PROT_WRITE, MAP_SHARED, g_sample_mem_dev, page_phy);
+    if (page_addr == MAP_FAILED) {
+        perror("mmap error");
+        return HI_NULL;
+    }
+    return (hi_void *)(page_addr + diff);
+}
+
+hi_s32 sample_sys_munmap(hi_void *vir_addr, hi_u32 size)
+{
+    hi_u64 page_addr;
+    hi_u32 page_size;
+    hi_u32 diff;
+
+    page_addr = (((hi_uintptr_t)vir_addr) & 0xfffffffffffff000ULL);
+    diff = (hi_uintptr_t)vir_addr - page_addr;
+    page_size = ((size + diff - 1) & 0xfffff000UL) + 0x1000;
+
+    return munmap((hi_void *)(hi_uintptr_t)page_addr, page_size);
+}
+
+hi_s32 sample_sys_set_reg(hi_u64 addr, hi_u32 value)
+{
+    hi_u32 *reg_addr = HI_NULL;
+    hi_u32 map_len = sizeof(value);
+
+    reg_addr = (hi_u32 *)sample_sys_io_mmap(addr, map_len);
+    if (reg_addr == HI_NULL) {
+        return HI_FAILURE;
+    }
+
+    *reg_addr = value;
+
+    return sample_sys_munmap(reg_addr, map_len);
+}
+
+hi_s32 sample_sys_get_reg(hi_u64 addr, hi_u32 *value)
+{
+    hi_u32 *reg_addr = HI_NULL;
+    hi_u32 map_len;
+
+    if (value == HI_NULL) {
+        return HI_ERR_SYS_NULL_PTR;
+    }
+
+    map_len = sizeof(*value);
+    reg_addr = (hi_u32 *)sample_sys_io_mmap(addr, map_len);
+    if (reg_addr == HI_NULL) {
+        return HI_FAILURE;
+    }
+
+    *value = *reg_addr;
+
+    return sample_sys_munmap(reg_addr, map_len);
+}
 
 /* get picture size(w*h), according pic_size */
 hi_s32 sample_comm_sys_get_pic_size(hi_pic_size pic_size, hi_size *size)
@@ -194,26 +283,26 @@ hi_s32 sample_comm_sys_init_with_vb_supplement(const hi_vb_cfg *vb_conf, hi_u32 
         sample_print("input parameter is null, it is invalid!\n");
         return HI_FAILURE;
     }
-
+	printf("#### 1.1.1 ####\n");
     ret = hi_mpi_vb_set_cfg(vb_conf);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vb_set_conf failed!\n");
         return HI_FAILURE;
     }
-
+	printf("#### 1.1.2  ####\n");
     supplement_conf.supplement_cfg = supplement_config;
     ret = hi_mpi_vb_set_supplement_cfg(&supplement_conf);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vb_set_supplement_conf failed!\n");
         return HI_FAILURE;
     }
-
+	printf("#### 1.1.3 ####\n");
     ret = hi_mpi_vb_init();
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vb_init failed!\n");
         return HI_FAILURE;
     }
-
+	printf("#### 1.1.4 ####\n");
     ret = hi_mpi_sys_init();
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_sys_init failed!\n");
@@ -268,6 +357,7 @@ hi_s32 sample_comm_vi_un_bind_vo(hi_vi_pipe vi_pipe, hi_vi_chn vi_chn, hi_vo_lay
     return HI_SUCCESS;
 }
 
+/* VI通道绑定到VPSS通道 */
 hi_s32 sample_comm_vi_bind_vpss(hi_vi_pipe vi_pipe, hi_vi_chn vi_chn, hi_vpss_grp vpss_grp, hi_vpss_chn vpss_chn)
 {
     hi_mpp_chn src_chn;
@@ -281,6 +371,7 @@ hi_s32 sample_comm_vi_bind_vpss(hi_vi_pipe vi_pipe, hi_vi_chn vi_chn, hi_vpss_gr
     dest_chn.dev_id = vpss_grp;
     dest_chn.chn_id = vpss_chn;
 
+	/* 数据源到数据接收者绑定接口 */
     check_return(hi_mpi_sys_bind(&src_chn, &dest_chn), "hi_mpi_sys_bind(VI-VPSS)");
 
     return HI_SUCCESS;

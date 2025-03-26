@@ -408,8 +408,8 @@ static td_s32 sample_common_svp_start_vpss(td_s32 vpss_grp_cnt, ot_size *pic_siz
     sample_comm_vpss_get_default_chn_attr(&vpss_chn_attr[0]);
    //  vpss_chn_attr[0].width = pic_size[0].width;
    //  vpss_chn_attr[0].height = pic_size[0].height;
-    vpss_chn_attr[0].width = 3840;
-    vpss_chn_attr[0].height = 2160;
+    vpss_chn_attr[0].width = 2592;
+    vpss_chn_attr[0].height = 1944;
     vpss_chn_attr[0].compress_mode = OT_COMPRESS_MODE_NONE;
     vpss_chn_attr[0].depth = 1;
 
@@ -524,6 +524,21 @@ static td_s32 sample_common_svp_set_vi_cfg(sample_vi_cfg *vi_cfg, hi_pic_size *p
                                            td_u32 pic_type_len, hi_pic_size *ext_pic_size_type, sample_sns_type sns_type)
 {
     sample_comm_vi_get_default_vi_cfg(sns_type, vi_cfg);
+    printf("sample_comm_vi_get_default_vi_cfg !!!\n");
+    
+    // 打印 sns_info
+    printf("sns_info:\n");
+    printf("  bus_id: %d\n", vi_cfg->sns_info.bus_id);
+
+    // 打印 mipi_info
+    printf("mipi_info:\n");
+    printf("  mipi_dev: %d\n", vi_cfg->mipi_info.mipi_dev);
+    printf("  combo_dev_attr.devno: %d\n", vi_cfg->mipi_info.combo_dev_attr.devno);
+
+    // 打印 dev_info
+    printf("dev_info:\n");
+    printf("  vi_dev: %d\n", vi_cfg->dev_info.vi_dev);
+
     sample_svp_check_exps_return(pic_type_len < OT_VPSS_CHN_NUM,
                                  TD_FAILURE, SAMPLE_SVP_ERR_LEVEL_ERROR, "pic_type_len is illegal!\n");
 
@@ -582,7 +597,7 @@ static td_s32 sample_common_svp_start_venc(const ot_sample_svp_switch *switch_pt
     td_s32 ret = TD_SUCCESS;
     ot_venc_chn h264_chn = 0;
     sample_comm_venc_chn_param chn_param;
-    ot_size ven_size = {2688, 1520};
+    ot_size ven_size = {2592, 1944};
   //  ot_size ven_size = {1920, 1080};
 
     chn_param.frame_rate = 30; /* 30 is a number */
@@ -590,7 +605,7 @@ static td_s32 sample_common_svp_start_venc(const ot_sample_svp_switch *switch_pt
     chn_param.gop = 30;        /* 30 is a number */
     chn_param.venc_size = ven_size;
 //    chn_param.size = PIC_1080P;
-    chn_param.size = PIC_2688X1520;
+    chn_param.size = PIC_2592X1944;
     chn_param.profile = 0;
     chn_param.is_rcn_ref_share_buf = TD_TRUE;
 
@@ -637,7 +652,7 @@ static td_s32 sample_common_svp_get_pic_type_by_sns_type(sample_sns_type sns_typ
         size[0] = PIC_3840X2160;
         break;
     default:
-        size[0] = PIC_3840X2160;
+        size[0] = PIC_2592X1944;
         break;
     }
   // size[1] = PIC_2688X1520;
@@ -666,7 +681,7 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
 
     const td_s32 vpss_grp_cnt = 1;
     td_s32 ret = TD_FAILURE;
-    sample_sns_type sns_type = OV_OS08B10_MIPI_8M_30FPS_12BIT;
+    sample_sns_type sns_type = SONY_IMX675_MIPI_5M_60FPS_10BIT;
     sample_print("sns_type = %d\n",sns_type);
     sample_svp_check_exps_return(vi_cfg == TD_NULL, ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "vi_cfg can't be null\n");
     sample_svp_check_exps_return(switch_ptr == TD_NULL, ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "switch_ptr can't be null\n");
@@ -678,9 +693,9 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
                                  "sample_common_svp_get_pic_type_by_sns_type failed!\n");
     ret = sample_common_svp_set_vi_cfg(vi_cfg, pic_type, OT_VPSS_CHN_NUM, ext_pic_size_type, sns_type);
     sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
-                                 "sample_common_svp_set_vi_cfg failed,Error:%#x\n", ret);
+				"sample_common_svp_set_vi_cfg failed,Error:%#x\n", ret);
 
-    /* step  1: Init vb */
+   /* step  1: Init vb */
     ret = sample_common_svp_vb_init(pic_type, pic_size, OT_VPSS_CHN_NUM);
     sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
                                  "Error(%#x),sample_common_svp_vb_init failed!\n", ret);

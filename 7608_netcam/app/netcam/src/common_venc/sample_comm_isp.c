@@ -37,7 +37,7 @@
 #include "hi_common_video.h"
 #include "sample_comm.h"
 
-static hi_isp_sns_type g_sns_type[HI_VI_MAX_PIPE_NUM] = {SNS_TYPE_BUTT};
+static hi_isp_sns_type g_sns_type[HI_VI_MAX_PIPE_NUM] = {SNS_TYPE_BUTT}; /* sensor 类型 */
 static pthread_t g_isp_pid[HI_VI_MAX_DEV_NUM] = {0};
 
 extern hi_isp_sns_obj g_sns_os08a20_obj;
@@ -45,23 +45,14 @@ extern hi_isp_sns_obj g_sns_os05a10_2l_slave_obj;
 extern hi_isp_sns_obj g_sns_imx347_slave_obj;
 extern hi_isp_sns_obj g_sns_imx485_obj;
 extern hi_isp_sns_obj g_sns_os04a10_obj;
-extern hi_isp_sns_obj g_sns_sc850sl_obj;
+extern hi_isp_sns_obj g_sns_bg0808_obj;
+extern ot_isp_sns_obj g_sns_SC450AI_obj;
+extern ot_isp_sns_obj g_sns_sc850sl_obj;
+extern hi_isp_sns_obj g_sns_imx464_obj;
+extern hi_isp_sns_obj g_sns_imx675_obj;
+extern hi_isp_sns_obj g_sns_imx678_obj;
 
 /* IspPub attr */
-static hi_isp_pub_attr g_isp_pub_attr_sc850sl={
-    {0, 0, 3840, 2160},
-    {3840, 2160},
-    30,
-    HI_ISP_BAYER_BGGR,
-    HI_WDR_MODE_NONE,
-    0,
-    0,
-    0,
-    {
-        0,
-        {0, 0, 3840, 2160},
-    },
-};
 static hi_isp_pub_attr g_isp_pub_attr_os08a20_mipi_8m_30fps = {
     {0, 24, 3840, 2160},
     {3840, 2160},
@@ -96,8 +87,7 @@ static hi_isp_pub_attr g_isp_pub_attr_os04a10_mipi_4m_30fps = {
     {0, 0, WIDTH_2688, HEIGHT_1520},
     {WIDTH_2688, HEIGHT_1520},
     30,
-    //HI_ISP_BAYER_RGGB,
-    HI_ISP_BAYER_BGGR,
+    HI_ISP_BAYER_RGGB,
     HI_WDR_MODE_NONE,
     0,
     0,
@@ -105,22 +95,6 @@ static hi_isp_pub_attr g_isp_pub_attr_os04a10_mipi_4m_30fps = {
     {
         0,
         {0, 0, 2688, 1520},
-    },
-};
-
-static hi_isp_pub_attr g_isp_pub_attr_os04a10_mipi_4m_30fps_wdr2to1 = {
-    {0, 0, WIDTH_2688, HEIGHT_1520},
-    {WIDTH_2688, HEIGHT_1520},
-    30,
-    //HI_ISP_BAYER_RGGB,
-    HI_ISP_BAYER_BGGR,
-    HI_WDR_MODE_2To1_LINE,
-    0,
-    0,
-    0,
-    {
-        0,
-        {0, 0, WIDTH_2688, HEIGHT_1520},
     },
 };
 
@@ -214,14 +188,101 @@ static hi_isp_pub_attr g_isp_pub_attr_imx485_mipi_8m_30fps_wdr3to1 = {
     },
 };
 
+static hi_isp_pub_attr g_isp_pub_attr_bg0808_mipi_2m_30fps = {
+    {0, 0, 1920, 1080},
+    {1920, 1080},
+    30,
+    HI_ISP_BAYER_GBRG,
+    HI_WDR_MODE_NONE,
+    0,
+    0,
+    0,
+    {
+        0,
+        {0, 0, 1920, 1080},
+    },
+};
+
+static hi_isp_pub_attr g_isp_pub_attr_imx464_mipi_4m_30fps = {
+    {0, 0, 2688, 1520},
+    {2688, 1520},
+    30,
+    HI_ISP_BAYER_RGGB,
+    HI_WDR_MODE_NONE,
+    0,
+    0,
+    0,
+    {
+        0,
+        {0, 0, 2688, 1520},
+    },
+};
+
+static hi_isp_pub_attr g_isp_pub_attr_imx464_mipi_4m_30fps_wdr2to1 = {
+    {0, 0, 2688, 1520},
+    {2688, 1520},
+    30,
+    HI_ISP_BAYER_RGGB,
+    HI_WDR_MODE_2To1_LINE,
+    0,
+    0,
+    0,
+    {
+        0,
+        {0, 0, 2688, 1520},
+    },
+};
+
+static hi_isp_pub_attr g_isp_pub_attr_imx464_mipi_4m_30fps_wdr3to1 = {
+    {0, 0, 2688, 1520},
+    {2688, 1520},
+    30,
+    HI_ISP_BAYER_RGGB,
+    HI_WDR_MODE_3To1_LINE,
+    0,
+    0,
+    0,
+    {
+        0,
+        {0, 0, 2688, 1520},
+    },
+};
+
+static hi_isp_pub_attr g_isp_pub_attr_imx464_mipi_4m_30fps_wdr2to1_frame = {
+    {0, 0, 2688, 1520},
+    {2688, 1520},
+    30,
+    HI_ISP_BAYER_RGGB,
+    HI_WDR_MODE_2To1_FRAME,
+    0,
+    0,
+    0,
+    {
+        0,
+        {0, 0, 2688, 1520},
+    },
+};
+
+/* [isp.0] 配置 */
+static hi_isp_pub_attr g_isp_pub_attr_imx675_mipi_5m_60fps = {
+    {0, 0, 2592, 1944},
+    {2592, 1944},
+    60,
+    HI_ISP_BAYER_RGGB,
+    HI_WDR_MODE_NONE,
+    0,
+    0,
+    0,
+    {
+        0,
+        {0, 0, 2608, 1964},
+    },
+};
+
+/* [isp.0] 配置 */
 hi_s32 sample_comm_isp_get_pub_attr_by_sns(sample_sns_type sns_type, hi_isp_pub_attr *pub_attr)
 {
     switch (sns_type) {
-	case SC850SL_8M30:
-            (hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
-                &g_isp_pub_attr_sc850sl, sizeof(hi_isp_pub_attr));
-            break;
-
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
             (hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
                 &g_isp_pub_attr_os08a20_mipi_8m_30fps, sizeof(hi_isp_pub_attr));
@@ -235,11 +296,6 @@ hi_s32 sample_comm_isp_get_pub_attr_by_sns(sample_sns_type sns_type, hi_isp_pub_
         case OV_OS04A10_MIPI_4M_30FPS_12BIT:
             (hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
                 &g_isp_pub_attr_os04a10_mipi_4m_30fps, sizeof(hi_isp_pub_attr));
-            break;
-
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1:
-            (hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
-                &g_isp_pub_attr_os04a10_mipi_4m_30fps_wdr2to1, sizeof(hi_isp_pub_attr));
             break;
 
         case OV_OS08B10_MIPI_8M_30FPS_12BIT:
@@ -272,6 +328,36 @@ hi_s32 sample_comm_isp_get_pub_attr_by_sns(sample_sns_type sns_type, hi_isp_pub_
                 &g_isp_pub_attr_imx485_mipi_8m_30fps_wdr3to1, sizeof(hi_isp_pub_attr));
             break;
 
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+			(hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
+                &g_isp_pub_attr_imx464_mipi_4m_30fps, sizeof(hi_isp_pub_attr));
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1:
+			(hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
+                &g_isp_pub_attr_imx464_mipi_4m_30fps_wdr2to1, sizeof(hi_isp_pub_attr));
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME:
+			(hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
+                &g_isp_pub_attr_imx464_mipi_4m_30fps_wdr2to1_frame, sizeof(hi_isp_pub_attr));
+			break;
+
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1:
+			(hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
+                &g_isp_pub_attr_imx464_mipi_4m_30fps_wdr3to1, sizeof(hi_isp_pub_attr));
+			break;
+		
+		case BG_BG0808_MIPI_2M_30FPS_12BIT:
+			 (hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
+                &g_isp_pub_attr_bg0808_mipi_2m_30fps, sizeof(hi_isp_pub_attr));
+			break;
+
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			(hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
+                &g_isp_pub_attr_imx675_mipi_5m_60fps, sizeof(hi_isp_pub_attr));
+			break;
+
         default:
             (hi_void)memcpy_s(pub_attr, sizeof(hi_isp_pub_attr),
                 &g_isp_pub_attr_os08a20_mipi_8m_30fps, sizeof(hi_isp_pub_attr));
@@ -281,16 +367,14 @@ hi_s32 sample_comm_isp_get_pub_attr_by_sns(sample_sns_type sns_type, hi_isp_pub_
     return HI_SUCCESS;
 }
 
+/* isp 获取sensor 对象实例 */
 hi_isp_sns_obj *sample_comm_isp_get_sns_obj(sample_sns_type sns_type)
 {
     switch (sns_type) {
-	      case SC850SL_8M30:
-	          return &g_sns_sc850sl_obj;
         case OV_OS08A20_MIPI_8M_30FPS_12BIT:
         case OV_OS08A20_MIPI_8M_30FPS_12BIT_WDR2TO1:
             return &g_sns_os08a20_obj;
         case OV_OS04A10_MIPI_4M_30FPS_12BIT:
-        case OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1:
             return &g_sns_os04a10_obj;
         case OV_OS08B10_MIPI_8M_30FPS_12BIT:
         case OV_OS08B10_MIPI_8M_30FPS_12BIT_WDR2TO1:
@@ -302,11 +386,17 @@ hi_isp_sns_obj *sample_comm_isp_get_sns_obj(sample_sns_type sns_type)
         case SONY_IMX485_MIPI_8M_30FPS_12BIT:
         case SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1:
             return &g_sns_imx485_obj;
+		case SONY_IMX464_MIPI_4M_30FPS_12BIT:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1:
+		case SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME:
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			return &g_sns_imx675_obj;
         default:
             return HI_NULL;
     }
 }
 
+/* 获取 sensor的通讯总线类型*/
 hi_isp_sns_type sample_comm_get_sns_bus_type(sample_sns_type sns_type)
 {
     hi_unused(sns_type);
@@ -315,14 +405,16 @@ hi_isp_sns_type sample_comm_get_sns_bus_type(sample_sns_type sns_type)
 
 /******************************************************************************
 * funciton : ISP init
+*  isp 注册 sensor 
 ******************************************************************************/
 hi_s32 sample_comm_isp_sensor_regiter_callback(hi_isp_dev isp_dev, sample_sns_type sns_type)
 {
     hi_s32 ret;
     hi_isp_3a_alg_lib ae_lib;
     hi_isp_3a_alg_lib awb_lib;
-    hi_isp_sns_obj *sns_obj;
+    hi_isp_sns_obj *sns_obj; /* sensor 对象 */
 
+	/* isp 获取sensor 对象 */
     sns_obj = sample_comm_isp_get_sns_obj(sns_type);
     if (sns_obj == HI_NULL) {
         printf("sensor %d not exist!\n", sns_type);
@@ -334,11 +426,13 @@ hi_s32 sample_comm_isp_sensor_regiter_callback(hi_isp_dev isp_dev, sample_sns_ty
     strncpy_s(ae_lib.lib_name, sizeof(ae_lib.lib_name), HI_AE_LIB_NAME, sizeof(HI_AE_LIB_NAME));
     strncpy_s(awb_lib.lib_name, sizeof(awb_lib.lib_name), HI_AWB_LIB_NAME, sizeof(HI_AWB_LIB_NAME));
     if (sns_obj->pfn_register_callback != HI_NULL) {
+		/* 调用 libsns_imx464.so 中的注册 sensor 回调函数 */
         ret = sns_obj->pfn_register_callback(isp_dev, &ae_lib, &awb_lib);
         if (ret != HI_SUCCESS) {
             printf("sensor_register_callback failed with %#x!\n", ret);
             return ret;
         }
+		printf("----- sensor_register_callback succeed! -----\n");
     } else {
         printf("sensor_register_callback failed with HI_NULL!\n");
     }
@@ -355,6 +449,7 @@ hi_s32 sample_comm_isp_sensor_unregiter_callback(hi_isp_dev isp_dev)
     hi_isp_sns_obj *sns_obj;
     hi_s32 ret;
 
+	/* isp 获取sensor 对象 */
     sns_obj = sample_comm_isp_get_sns_obj(g_sns_type[isp_dev]);
     if (sns_obj == HI_NULL) {
         printf("sensor %d not exist!\n", g_sns_type[isp_dev]);
@@ -380,34 +475,39 @@ hi_s32 sample_comm_isp_sensor_unregiter_callback(hi_isp_dev isp_dev)
     return HI_SUCCESS;
 }
 
-
+/* 设置 sensor与I2C/SPI的绑定关系 */
 hi_s32 sample_comm_isp_bind_sns(hi_isp_dev isp_dev, sample_sns_type sns_type, hi_s8 sns_dev)
 {
-    hi_isp_sns_commbus sns_bus_info;
-    hi_isp_sns_type    bus_type;
+    hi_isp_sns_commbus sns_bus_info; /* sensor 通信总线信息 */
+    hi_isp_sns_type    bus_type; /* 总线类型 */
     hi_isp_sns_obj    *sns_obj;
     hi_s32 ret;
 
+	/* isp 获取sensor 对象 */
     sns_obj = sample_comm_isp_get_sns_obj(sns_type);
     if (sns_obj == HI_NULL) {
         printf("sensor %d not exist!\n", sns_type);
         return HI_FAILURE;
     }
 
+	/* 获取 sensor的通讯总线类型*/
     bus_type = sample_comm_get_sns_bus_type(sns_type);
     if (bus_type == HI_ISP_SNS_I2C_TYPE) {
-        sns_bus_info.i2c_dev = sns_dev;
+        sns_bus_info.i2c_dev = sns_dev; /* Sensor绑定的I2C设备号 */
     } else {
-        sns_bus_info.ssp_dev.bit4_ssp_dev = sns_dev;
-        sns_bus_info.ssp_dev.bit4_ssp_cs  = 0;
+        sns_bus_info.ssp_dev.bit4_ssp_dev = sns_dev; /* Sensor绑定的SPI设备号 */
+        sns_bus_info.ssp_dev.bit4_ssp_cs    = 0; /* Sensor绑定的SPI片选信号 */
     }
 
+	/* 设置 sensor与I2C/SPI的绑定关系 */
     if (sns_obj->pfn_set_bus_info != HI_NULL) {
+		/* 调用 libsns_imx464.so 中的设置 sensor与I2C/SPI的绑定关系回到函数 */
         ret = sns_obj->pfn_set_bus_info(isp_dev, sns_bus_info);
         if (ret != HI_SUCCESS) {
             printf("set sensor bus info failed with %#x!\n", ret);
             return ret;
         }
+		printf("----- set sensor bus info succeed with %#x! ------\n", sns_bus_info.i2c_dev);
     } else {
         printf("not support set sensor bus info!\n");
         return HI_FAILURE;
@@ -416,6 +516,26 @@ hi_s32 sample_comm_isp_bind_sns(hi_isp_dev isp_dev, sample_sns_type sns_type, hi
     return HI_SUCCESS;
 }
 
+td_s32 sample_comm_isp_mirror_flip_set(ot_vi_pipe vi_pipe,int mirror, int flip)
+{
+        if(mirror == 1 && flip == 0)
+        {
+                g_sns_sc850sl_obj.pfn_mirror_flip(vi_pipe, 1);
+        }
+        else if (mirror == 0 && flip ==1)
+        {
+                g_sns_sc850sl_obj.pfn_mirror_flip(vi_pipe, 2);
+        }
+        else if (mirror == 1 && flip == 1)
+        {
+                g_sns_sc850sl_obj.pfn_mirror_flip(vi_pipe, 3);
+        }
+        else
+                g_sns_sc850sl_obj.pfn_mirror_flip(vi_pipe, 0);
+        return TD_SUCCESS;
+}
+
+/* 向ISP注册AE库 */
 hi_s32 sample_comm_isp_ae_lib_callback(hi_isp_dev isp_dev)
 {
     hi_s32 ret;
@@ -424,6 +544,7 @@ hi_s32 sample_comm_isp_ae_lib_callback(hi_isp_dev isp_dev)
     ae_lib.id = isp_dev;
     strncpy_s(ae_lib.lib_name, sizeof(ae_lib.lib_name), HI_AE_LIB_NAME, sizeof(HI_AE_LIB_NAME));
 
+	/* 向ISP注册AE库 */
     ret = hi_mpi_ae_register(isp_dev, &ae_lib);
     if (ret != HI_SUCCESS) {
         printf("hi_mpi_ae_register failed with %#x!\n", ret);
@@ -433,6 +554,7 @@ hi_s32 sample_comm_isp_ae_lib_callback(hi_isp_dev isp_dev)
     return HI_SUCCESS;
 }
 
+/* 向ISP注销AE库 */
 hi_s32 sample_comm_isp_ae_lib_uncallback(hi_isp_dev isp_dev)
 {
     hi_s32 ret;
@@ -441,6 +563,7 @@ hi_s32 sample_comm_isp_ae_lib_uncallback(hi_isp_dev isp_dev)
     ae_lib.id = isp_dev;
     strncpy_s(ae_lib.lib_name, sizeof(ae_lib.lib_name), HI_AE_LIB_NAME, sizeof(HI_AE_LIB_NAME));
 
+	/* 向ISP注销AE库 */
     ret = hi_mpi_ae_unregister(isp_dev, &ae_lib);
     if (ret != HI_SUCCESS) {
         printf("hi_mpi_ae_unregister failed with %#x!\n", ret);
@@ -450,6 +573,7 @@ hi_s32 sample_comm_isp_ae_lib_uncallback(hi_isp_dev isp_dev)
     return HI_SUCCESS;
 }
 
+/* 向ISP注册AWB库 */
 hi_s32 sample_comm_isp_awb_lib_callback(hi_isp_dev isp_dev)
 {
     hi_s32 ret;
@@ -458,6 +582,7 @@ hi_s32 sample_comm_isp_awb_lib_callback(hi_isp_dev isp_dev)
     awb_lib.id = isp_dev;
     strncpy_s(awb_lib.lib_name, sizeof(awb_lib.lib_name), HI_AWB_LIB_NAME, sizeof(HI_AWB_LIB_NAME));
 
+	/* 向ISP注册AWB库 */
     ret = hi_mpi_awb_register(isp_dev, &awb_lib);
     if (ret != HI_SUCCESS) {
         printf("hi_mpi_awb_register failed with %#x!\n", ret);
@@ -467,6 +592,7 @@ hi_s32 sample_comm_isp_awb_lib_callback(hi_isp_dev isp_dev)
     return HI_SUCCESS;
 }
 
+/* 向ISP注销AWB库 */
 hi_s32 sample_comm_isp_awb_lib_uncallback(hi_isp_dev isp_dev)
 {
     hi_s32 ret;
@@ -474,6 +600,7 @@ hi_s32 sample_comm_isp_awb_lib_uncallback(hi_isp_dev isp_dev)
 
     awb_lib.id = isp_dev;
     strncpy_s(awb_lib.lib_name, sizeof(awb_lib.lib_name), HI_AWB_LIB_NAME, sizeof(HI_AWB_LIB_NAME));
+	/* 向ISP注销AWB库 */
     ret = hi_mpi_awb_unregister(isp_dev, &awb_lib);
     if (ret != HI_SUCCESS) {
         printf("hi_mpi_awb_unregister failed with %#x!\n", ret);
@@ -520,30 +647,14 @@ hi_s32 sample_comm_isp_sensor_founction_cfg(hi_vi_pipe vi_pipe, sample_sns_type 
         case SONY_IMX485_MIPI_8M_30FPS_12BIT:
             g_sns_imx485_obj.pfn_set_blc_clamp(vi_pipe, sns_blc_clamp);
             break;
+		case SONY_IMX675_MIPI_5M_60FPS_10BIT:
+			g_sns_imx675_obj.pfn_set_blc_clamp(vi_pipe, sns_blc_clamp); // 指向sensor黑电平矫正的函数指针
+			break;
         default:
             break;
     }
 
     return HI_SUCCESS;
-}
-
-td_s32 sample_comm_isp_mirror_flip_set(ot_vi_pipe vi_pipe,int mirror, int flip)
-{
-        if(mirror == 1 && flip == 0)
-        {
-                g_sns_sc850sl_obj.pfn_mirror_flip(vi_pipe, 1);
-        }
-        else if (mirror == 0 && flip ==1)
-        {
-                g_sns_sc850sl_obj.pfn_mirror_flip(vi_pipe, 2);
-        }
-        else if (mirror == 1 && flip == 1)
-        {
-                g_sns_sc850sl_obj.pfn_mirror_flip(vi_pipe, 3);
-        }
-        else
-                g_sns_sc850sl_obj.pfn_mirror_flip(vi_pipe, 0);
-        return TD_SUCCESS;
 }
 
 hi_s32 sample_comm_isp_run(hi_isp_dev isp_dev)

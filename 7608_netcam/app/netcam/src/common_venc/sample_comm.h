@@ -181,6 +181,7 @@ extern "C" {
         } \
     } while (0)
 
+/* 图像大小枚举 */
 typedef enum {
     PIC_CIF,
     PIC_360P,    /* 640 * 360 */
@@ -206,7 +207,6 @@ typedef enum {
     PIC_2560X1600,
     PIC_2592X1520,
     PIC_2592X1944,
-    PIC_2688X1520,
     PIC_3840X2160,
     PIC_4096X2160,
     PIC_3000X3000,
@@ -217,49 +217,58 @@ typedef enum {
     PIC_BUTT
 } hi_pic_size;
 
+/* sensor类型枚举 */
 typedef enum {
     OV_OS08A20_MIPI_8M_30FPS_12BIT,
     OV_OS08A20_MIPI_8M_30FPS_12BIT_WDR2TO1,
     OV_OS04A10_MIPI_4M_30FPS_12BIT,
-    OV_OS04A10_MIPI_4M_30FPS_12BIT_WDR2TO1,
     OV_OS08B10_MIPI_8M_30FPS_12BIT,
     OV_OS08B10_MIPI_8M_30FPS_12BIT_WDR2TO1,
     OV_OS05A10_SLAVE_MIPI_4M_30FPS_12BIT,
     SONY_IMX347_SLAVE_MIPI_4M_30FPS_12BIT,
+	SONY_IMX464_MIPI_4M_30FPS_12BIT,
+	SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1,
+	SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR3TO1,
+	SONY_IMX464_MIPI_4M_30FPS_10BIT_WDR2TO1_FRAME,
     SONY_IMX485_MIPI_8M_30FPS_12BIT,
     SONY_IMX485_MIPI_8M_30FPS_10BIT_WDR3TO1,
-    SC850SL_8M30,
+	BG_BG0808_MIPI_2M_30FPS_12BIT,
+	SONY_IMX675_MIPI_5M_60FPS_10BIT,
     SNS_TYPE_BUTT,
 } sample_sns_type;
 
+/* sensor 信息*/
 typedef struct {
-    sample_sns_type sns_type;
-    hi_u32          sns_clk_src;
-    hi_u32          sns_rst_src;
-    hi_u32          bus_id;
+    sample_sns_type sns_type; /* sensor 类型 */
+    hi_u32          sns_clk_src; /* sensor 的时钟源(SENSOR的时钟信号线编号) */
+    hi_u32          sns_rst_src;  /* sensor 的复位源(SENSOR复位信号线编号) */
+    hi_u32          bus_id; /* I2C 编号*/
 } sample_sns_info;
 
+/* mipi 信息 */
 typedef struct {
-    hi_s32             mipi_dev;
-    lane_divide_mode_t divide_mode;
-    combo_dev_attr_t   combo_dev_attr;
-    ext_data_type_t    ext_data_type_attr;
+    hi_s32             mipi_dev;  /* MIPI Rx 设备号 */
+    lane_divide_mode_t divide_mode;       /* MIPI Rx的Lane分布模式 */
+    combo_dev_attr_t   combo_dev_attr;  /* combo设备属性  */
+    ext_data_type_t    ext_data_type_attr; /* MIPI 扩展data type属性*/
 } sample_mipi_info;
 
+/* VI设备信息 */
 typedef struct {
-    hi_vi_dev      vi_dev;
-    hi_vi_dev_attr dev_attr;
-    hi_vi_bas_attr bas_attr;
+    hi_vi_dev               vi_dev; /* VI设备号 */
+    hi_vi_dev_attr dev_attr; /* VI设备属性 */
+    hi_vi_bas_attr bas_attr; /* VI BayerScale属性 */
 } sample_vi_dev_info;
 
 typedef struct {
     hi_isp_pub_attr isp_pub_attr;
 } sample_isp_info;
 
+/* VI的wdr合成组信息 */
 typedef struct {
-    hi_u32                    grp_num;
-    hi_vi_grp                 fusion_grp[HI_VI_MAX_WDR_FUSION_GRP_NUM];
-    hi_vi_wdr_fusion_grp_attr fusion_grp_attr[HI_VI_MAX_WDR_FUSION_GRP_NUM];
+    hi_u32                      grp_num; /* wdr合成组的组数 */
+    hi_vi_grp                 fusion_grp[HI_VI_MAX_WDR_FUSION_GRP_NUM]; /* wdr合成组的组号 */
+    hi_vi_wdr_fusion_grp_attr fusion_grp_attr[HI_VI_MAX_WDR_FUSION_GRP_NUM]; /* wdr合成组的属性 */
 } sample_vi_grp_info;
 
 typedef struct {
@@ -278,18 +287,20 @@ typedef struct {
     sample_vi_chn_info chn_info[HI_VI_MAX_PHYS_CHN_NUM];
 } sample_vi_pipe_info;
 
+/* VI配置信息 */
 typedef struct {
-    sample_sns_info     sns_info;
-    sample_mipi_info    mipi_info;
-    sample_vi_dev_info  dev_info;
-    hi_vi_bind_pipe     bind_pipe;
-    sample_vi_grp_info  grp_info;
+    sample_sns_info          sns_info; /* sensor 信息*/
+    sample_mipi_info     mipi_info; /* mipi 信息*/
+    sample_vi_dev_info  dev_info; /* VI 设备信息 */
+    hi_vi_bind_pipe       bind_pipe; /* VI DEV与PIPE的绑定关系 */
+    sample_vi_grp_info   grp_info; /* VI的wdr合成组信息*/
     sample_vi_pipe_info pipe_info[HI_VI_MAX_PHYS_PIPE_NUM];
 } sample_vi_cfg;
 
+/* 自定义的视频图像帧信息 */
 typedef struct {
-    hi_vb_blk           vb_blk;
-    hi_u32              blk_size;
+    hi_vb_blk           vb_blk; /* 缓存块句柄 */
+    hi_u32                 blk_size; /* 缓存块的大小, 单位: 字节 */
     hi_video_frame_info frame_info;
 } sample_vi_user_frame_info;
 
@@ -301,14 +312,19 @@ typedef struct {
     hi_dynamic_range dynamic_range;
 } sample_vi_get_frame_vb_cfg;
 
+/*  VI 模块 FPN 标定配置 */
 typedef struct {
-    hi_u32           threshold;
+	/* 标定时的阈值，在标定时如果像素的值大于该值，则认为是坏点，该像素点不参与标定。取值范围:[1, 4095]*/
+    hi_u32           threshold; 
+	/* 标定的帧数，取值范围：{1，2，4，8，16}，即为 2 的整数次幂。*/
     hi_u32           frame_num;
+	/* FPN 标定的类型，有二种：帧模式与行模式，帧模式校正效果要优于行模式，而行模式要比帧模式省内存。SS928V100 只支持帧模式。*/
     hi_isp_fpn_type  fpn_type;
-    hi_pixel_format  pixel_format;
-    hi_compress_mode compress_mode;
+    hi_pixel_format  pixel_format; /* 输出黑帧的像素格式 */
+    hi_compress_mode compress_mode; /* 输出黑帧的压缩模式, SS928V100 FPN标定只能是非压缩模式 */
 } sample_vi_fpn_calibration_cfg;
 
+/*  VI 模块 FPN 校正配置 */
 typedef struct {
     hi_op_mode                op_mode;
     hi_isp_fpn_type           fpn_type;
@@ -327,6 +343,7 @@ typedef enum {
     VI_USER_PIC_BGCOLOR,
 } sample_vi_user_pic_type;
 
+/* 显示分屏枚举 */
 typedef enum {
     VO_MODE_1MUX = 0,
     VO_MODE_2MUX,
@@ -342,9 +359,10 @@ typedef enum {
     VO_MODE_BUTT
 } sample_vo_mode;
 
+/* 码率控制模式枚举 */
 typedef enum {
-    SAMPLE_RC_CBR = 0,
-    SAMPLE_RC_VBR,
+    SAMPLE_RC_CBR = 0, /* CBR（Constant Bit Rate, 恒定比特率）码率控制模式 */
+    SAMPLE_RC_VBR,         /* VBR（Variable Bit Rate, 可变比特率）码率控制模式 */
     SAMPLE_RC_AVBR,
     SAMPLE_RC_CVBR,
     SAMPLE_RC_QVBR,
@@ -357,7 +375,6 @@ typedef struct {
     hi_bool thread_start;
     hi_venc_chn venc_chn[HI_VENC_MAX_CHN_NUM];
     hi_s32 cnt;
-    hi_bool save_heif;
 } sample_venc_getstream_para;
 
 typedef struct {
@@ -395,7 +412,7 @@ typedef struct {
 } sample_vo_sync_info;
 
 typedef struct {
-    sample_vo_mode mode;
+    sample_vo_mode mode; /* 显示分屏模式 */
     hi_u32 wnd_num;
     hi_u32 square;
     hi_u32 row;
@@ -429,31 +446,31 @@ typedef struct {
     sample_vo_mode vo_mode;
 } sample_comm_vo_layer_cfg;
 
+/* 视频输出配置信息 */
 typedef struct {
     /* for device */
-    hi_vo_dev vo_dev;
-    hi_vo_intf_type vo_intf_type;
-    hi_vo_intf_sync intf_sync;
-    hi_pic_size pic_size;
-    hi_u32 bg_color;
+    hi_vo_dev 				 vo_dev; 			   /*设备号 */
+    hi_vo_intf_type 	vo_intf_type;   /* 接口类型 */
+    hi_vo_intf_sync 	intf_sync; 			/* 时序类型 */
+    hi_pic_size 			  pic_size; 		   /* 图像大小枚举 */
+    hi_u32 						  bg_color;			 /* 设备背景色（十六进制RGB888格式）*/
 
-    /* for layer */
-    hi_pixel_format pix_format;
-    hi_rect disp_rect;
-    hi_size image_size;
-    hi_vo_partition_mode vo_part_mode;
-    hi_compress_mode compress_mode;
-
-    hi_u32 dis_buf_len;
-    hi_dynamic_range dst_dynamic_range;
+    /* for layer 视频层（ot_vo_video_layer_attr） */
+    hi_pixel_format 	pix_format; 	/* 视频层输入像素格式 */
+    hi_rect 					  disp_rect; 		 /* 视频显示区域矩形结构体 */
+    hi_size 					  image_size; 	  /*  图像分辨率结构体 */
+    hi_vo_partition_mode 	vo_part_mode;    /* 视频层的分割模式 */
+    hi_compress_mode 		 compress_mode; /* 视频层支持压缩或解压模式 */
+    hi_u32 							dis_buf_len; /* 视频层显示缓存的长度 */
+    hi_dynamic_range dst_dynamic_range; /* 视频层输出动态范围类型 */
 
     /* for channel */
-    sample_vo_mode vo_mode;
+    sample_vo_mode vo_mode; /* 显示分屏枚举 */
 
     /* for user sync */
-    hi_vo_sync_info sync_info;
-    hi_vo_user_sync_info user_sync;
-    hi_u32 dev_frame_rate;
+    hi_vo_sync_info sync_info; /* 接口时序信息 */
+    hi_vo_user_sync_info user_sync; /* 用户接口时序信息 */ 
+    hi_u32 dev_frame_rate; /* 视频输出设备帧率, 即刷新率, 与时序相关 */
 } sample_vo_cfg;
 
 #if VO_MIPI_SUPPORT
@@ -544,24 +561,27 @@ typedef struct {
     hi_bool tmv_buf_alloc;
 } sample_vdec_buf;
 
+/* 视频(H.264/H.265/MPEG4)解码参数 */
 typedef struct {
-    hi_video_dec_mode dec_mode;
-    hi_u32 ref_frame_num;
-    hi_data_bit_width bit_width;
+    hi_video_dec_mode  dec_mode; /* 解码模式 */
+    hi_u32 								 ref_frame_num; /* 参考帧的数目 */
+    hi_data_bit_width 		bit_width; /*  图像的bit位宽 */
 } sample_vdec_video_attr;
 
+/* 图片(JPEG/MJPEG)解码参数  */
 typedef struct {
-    hi_pixel_format pixel_format;
-    hi_u32 alpha;
+    hi_pixel_format 	pixel_format; /* JPEG(MJPEG)解码输出格式 */
+    hi_u32 						  alpha; /* ARGB格式输出时的全局alpha，仅ARGB输出时有效 */
 } sample_vdec_pic_attr;
 
+/* 解码通道属性 */
 typedef struct {
-    hi_payload_type type;
-    hi_vdec_send_mode mode;
-    hi_u32 width;
-    hi_u32 height;
-    hi_u32 frame_buf_cnt;
-    hi_u32 display_frame_num;
+    hi_payload_type 			type; /* 解码协议类型 */
+    hi_vdec_send_mode 	 mode; /* 码流发送方式 */
+    hi_u32 		width; 					/* 通道支持的解码图像最大宽（以像素为单位）*/
+    hi_u32 		height; 				/* 通道支持的解码图像最大高（以像素为单位）*/
+    hi_u32 		frame_buf_cnt; /* 解码图像帧存个数 */
+    hi_u32 		display_frame_num; /* 解码缓存图像的最小帧数 */
     union {
         sample_vdec_video_attr sample_vdec_video; /* structure with video (h265/h264) */
         sample_vdec_pic_attr sample_vdec_picture; /* structure with picture (jpeg/mjpeg) */
@@ -589,12 +609,13 @@ typedef struct {
     hi_u32 ext_y_size;
 } sample_vb_cal_config;
 
+/* 视频编码通道参数 */
 typedef struct {
-    hi_u32 frame_rate;
-    hi_u32 stats_time;
-    hi_u32 gop;
+    hi_u32 frame_rate; /* 视频编码通道帧率 */
+    hi_u32 stats_time; /* 编码码率统计时间，以秒为单位 */
+    hi_u32 gop; /* 编码图像组（图像帧数） Group Of Pictures 编码的视频序列分成了一组一组的有序的帧的集合进行编码 */
     hi_size venc_size;
-    hi_pic_size size;
+    hi_pic_size size; /* 图像大小 */
     hi_u32 profile;
     hi_bool is_rcn_ref_share_buf;
     hi_venc_gop_attr gop_attr;
@@ -620,6 +641,10 @@ typedef struct {
 #ifndef __LITEOS__
 hi_void sample_sys_signal(void (*func)(int));
 #endif
+hi_void *sample_sys_io_mmap(hi_u64 phy_addr, hi_u32 size);
+hi_s32 sample_sys_munmap(hi_void *vir_addr, hi_u32 size);
+hi_s32 sample_sys_set_reg(hi_u64 addr, hi_u32 value);
+hi_s32 sample_sys_get_reg(hi_u64 addr, hi_u32 *value);
 
 hi_s32 sample_comm_sys_get_pic_size(hi_pic_size pic_size, hi_size *size);
 hi_pic_size sample_comm_sys_get_pic_enum(const hi_size *size);
@@ -824,8 +849,9 @@ hi_void sample_comm_vi_init_pipe_info(sample_sns_type sns_type, const hi_size *s
 hi_void sample_comm_vi_get_default_mipi_info(sample_sns_type sns_type, sample_mipi_info *mipi_info);
 hi_void sample_comm_vi_get_default_dev_info(sample_sns_type sns_type, sample_vi_dev_info *dev_info);
 hi_void sample_comm_vi_get_mipi_info_by_dev_id(sample_sns_type sns_type, hi_vi_dev vi_dev,
-                                               sample_mipi_info *mipi_info);
-hi_void sample_comm_venc_set_save_heif(hi_bool save_heif);
+                                                sample_mipi_info *mipi_info);
+hi_void sample_comm_vi_get_dev_info_by_dev_id(sample_sns_type sns_type, hi_vi_dev vi_dev,
+												sample_vi_dev_info *dev_info);
 
 #ifdef __cplusplus
 }

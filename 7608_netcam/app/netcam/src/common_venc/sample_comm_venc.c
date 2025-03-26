@@ -21,7 +21,6 @@
 #include <limits.h>
 
 #include "sample_comm.h"
-#include "heif_format.h"
 
 #define TEMP_BUF_LEN 8
 #define MAX_THM_SIZE (64 * 1024)
@@ -54,7 +53,6 @@ typedef struct {
     hi_venc_chn venc_chn;
     hi_char file_postfix[10]; /* 10 :file_postfix number */
     hi_s32 chn_total;
-    hi_bool save_heif;
 } sample_comm_venc_stream_proc_info;
 
 const hi_u8 g_soi[2] = { 0xFF, 0xD8 }; /* 2 is a number */
@@ -62,12 +60,7 @@ const hi_u8 g_eoi[2] = { 0xFF, 0xD9 }; /* 2 is a number */
 
 static pthread_t g_venc_pid;
 static pthread_t g_venc_qpmap_pid;
-static sample_venc_getstream_para g_para = {
-    .thread_start = HI_FALSE,
-    .cnt = 0,
-    .save_heif = HI_FALSE
-};
-
+static sample_venc_getstream_para g_para;
 static sample_venc_qpmap_sendframe_para g_qpmap_send_frame_para;
 static pthread_t g_venc_rateauto_pid;
 static sample_venc_rateauto_para g_venc_rateauto_frame_param;
@@ -1091,53 +1084,11 @@ static hi_void sample_comm_venc_h265_vbr_param_init(hi_venc_chn_attr *venc_chn_a
     venc_chn_attr->rc_attr.h265_vbr = h265_vbr;
 }
 
-
-static hi_void sample_comm_venc_h264_vbr_param_init_x(hi_venc_chn_attr *venc_chn_attr, hi_u32 gop, hi_u32 stats_time,
-    hi_u32 frame_rate, sample_comm_venc_chn_param *chn_param)
-{
-    hi_venc_h264_vbr h264_vbr;
-
-    venc_chn_attr->rc_attr.rc_mode = HI_VENC_RC_MODE_H264_VBR;
-    h264_vbr.gop = gop;
-    h264_vbr.stats_time = stats_time;
-    h264_vbr.src_frame_rate = frame_rate;
-    h264_vbr.dst_frame_rate = frame_rate;
-
-    h264_vbr.max_bit_rate = chn_param->bitrate_x;
-
-    venc_chn_attr->rc_attr.h264_vbr = h264_vbr;
-}
-
-static hi_void sample_comm_venc_h265_vbr_param_init_x(hi_venc_chn_attr *venc_chn_attr, hi_u32 gop, hi_u32 stats_time,
-    hi_u32 frame_rate, sample_comm_venc_chn_param *chn_param)
-{
-    hi_venc_h265_vbr h265_vbr;
-
-    venc_chn_attr->rc_attr.rc_mode = HI_VENC_RC_MODE_H265_VBR;
-    h265_vbr.gop = gop;
-    h265_vbr.stats_time = stats_time;
-    h265_vbr.src_frame_rate = frame_rate;
-    h265_vbr.dst_frame_rate = frame_rate;
-
-    h265_vbr.max_bit_rate = chn_param->bitrate_x;
-    
-    venc_chn_attr->rc_attr.h265_vbr = h265_vbr;
-}
-
-
-
-
 static hi_void sample_comm_venc_mjpeg_fixqp_param_init(hi_venc_chn_attr *venc_chn_attr, hi_u32 frame_rate)
 {
     hi_venc_mjpeg_fixqp mjpege_fixqp;
 
     venc_chn_attr->rc_attr.rc_mode = HI_VENC_RC_MODE_MJPEG_FIXQP;
-    mjpege_fixqp.qfactor = 95; /* 95 is a number */
-    mjpege_fixqp.src_frame_rate = frame_rate;
-    mjpege_fixqp.dst_frame_rate = frame_rate;
-
-    venc_chn_attr->rc_attr.mjpeg_fixqp = mjpege_fixqp;
-
     mjpege_fixqp.qfactor = 95; /* 95 is a number */
     mjpege_fixqp.src_frame_rate = frame_rate;
     mjpege_fixqp.dst_frame_rate = frame_rate;
@@ -1275,16 +1226,18 @@ static hi_void sample_comm_venc_h264_cbr_param_init(hi_venc_chn_attr *venc_chn_a
     venc_chn_attr->rc_attr.h264_cbr = h264_cbr;
 }
 
+/* 初始化H.265协议编码通道Cbr码率控制模式的编码器 */
 static hi_void sample_comm_venc_h265_cbr_param_init(hi_venc_chn_attr *venc_chn_attr, hi_u32 gop, hi_u32 stats_time,
     hi_u32 frame_rate, hi_pic_size size)
 {
-    hi_venc_h265_cbr h265_cbr;
+    hi_venc_h265_cbr h265_cbr; /* H.265编码通道CBR属性 */
 
+	/* 编码通道码率控制器的RC模式(码率控制模式) */
     venc_chn_attr->rc_attr.rc_mode = HI_VENC_RC_MODE_H265_CBR;
-    h265_cbr.gop = gop;
-    h265_cbr.stats_time = stats_time;     /* stream rate statics time(s) */
-    h265_cbr.src_frame_rate = frame_rate; /* input (vi) frame rate */
-    h265_cbr.dst_frame_rate = frame_rate; /* target frame rate */
+    h265_cbr.gop = gop; /* 编码图像组（图像帧数）*/
+    h265_cbr.stats_time = stats_time;     /* 码率统计时间，以秒为单位 stream rate statics time(s) */
+    h265_cbr.src_frame_rate = frame_rate; /* 输入帧率 input (vi) frame rate */
+    h265_cbr.dst_frame_rate = frame_rate; /* 编码器输出帧率 target frame rate */
     switch (size) {
         case PIC_D1_NTSC:
             h265_cbr.bit_rate = 1024 * frame_rate / 30; /* 1024 is a number 30 is a number */
@@ -1318,39 +1271,6 @@ static hi_void sample_comm_venc_h265_cbr_param_init(hi_venc_chn_attr *venc_chn_a
             h265_cbr.bit_rate = 1024 * 2 + 2048 * frame_rate / 30; /* 1024 2 2048 30 is a number */
             break;
     }
-    venc_chn_attr->rc_attr.h265_cbr = h265_cbr;
-}
-
-
-static hi_void sample_comm_venc_h264_cbr_param_init_x(hi_venc_chn_attr *venc_chn_attr, hi_u32 gop, hi_u32 stats_time,
-    hi_u32 frame_rate, sample_comm_venc_chn_param *chn_param)
-{
-    hi_venc_h264_cbr h264_cbr;
-
-    venc_chn_attr->rc_attr.rc_mode = HI_VENC_RC_MODE_H264_CBR;
-    h264_cbr.gop = gop;
-    h264_cbr.stats_time = stats_time; /* stream rate statics time(s) */
-    h264_cbr.src_frame_rate = frame_rate; /* input (vi) frame rate */
-    h264_cbr.dst_frame_rate = frame_rate; /* target frame rate */
-
-    h264_cbr.bit_rate = chn_param->bitrate_x;
-
-    venc_chn_attr->rc_attr.h264_cbr = h264_cbr;
-    }
-
-static hi_void sample_comm_venc_h265_cbr_param_init_x(hi_venc_chn_attr *venc_chn_attr, hi_u32 gop, hi_u32 stats_time,
-    hi_u32 frame_rate, sample_comm_venc_chn_param *chn_param)
-{
-    hi_venc_h265_cbr h265_cbr;
-
-    venc_chn_attr->rc_attr.rc_mode = HI_VENC_RC_MODE_H265_CBR;
-    h265_cbr.gop = gop;
-    h265_cbr.stats_time = stats_time;     /* stream rate statics time(s) */
-    h265_cbr.src_frame_rate = frame_rate; /* input (vi) frame rate */
-    h265_cbr.dst_frame_rate = frame_rate; /* target frame rate */
-
-    h265_cbr.bit_rate = chn_param->bitrate_x;
-
     venc_chn_attr->rc_attr.h265_cbr = h265_cbr;
 }
 
@@ -1423,29 +1343,7 @@ static hi_s32 sample_comm_venc_h264_param_init(hi_venc_chn_attr *chn_attr, sampl
     return HI_SUCCESS;
 }
 
-static hi_s32 sample_comm_venc_h264_param_init_x(hi_venc_chn_attr *chn_attr, sample_comm_venc_chn_param *chn_param)
-{
-    sample_rc rc_mode = chn_param->rc_mode;
-    hi_u32 gop = chn_param->gop;
-    hi_u32 stats_time = chn_param->stats_time;
-    hi_u32 frame_rate = chn_param->frame_rate;
-    hi_pic_size size = chn_param->size;
-
-    chn_attr->venc_attr.h264_attr.frame_buf_ratio = SAMPLE_FRAME_BUF_RATIO_MIN;
-    if (rc_mode == SAMPLE_RC_CBR) {
-        sample_comm_venc_h264_cbr_param_init_x(chn_attr, gop, stats_time, frame_rate, chn_param);
-    }else if (rc_mode == SAMPLE_RC_VBR) {
-        sample_comm_venc_h264_vbr_param_init_x(chn_attr, gop, stats_time, frame_rate, chn_param);
-    }
-    else {
-        sample_print("%s,%d,rc_mode(%d) not support\n", __FUNCTION__, __LINE__, rc_mode);
-        return HI_FAILURE;
-    }
-    chn_attr->venc_attr.h264_attr.rcn_ref_share_buf_en = chn_param->is_rcn_ref_share_buf;
-
-    return HI_SUCCESS;
-}
-
+/* 初始化H.265编码协议的编码器参数 */
 static hi_s32 sample_comm_venc_h265_param_init(hi_venc_chn_attr *chn_attr,
     sample_comm_venc_chn_param *chn_param)
 {
@@ -1457,6 +1355,7 @@ static hi_s32 sample_comm_venc_h265_param_init(hi_venc_chn_attr *chn_attr,
 
     chn_attr->venc_attr.h265_attr.frame_buf_ratio = SAMPLE_FRAME_BUF_RATIO_MIN;
     if (rc_mode == SAMPLE_RC_CBR) {
+		/* 初始化H.265协议编码通道Cbr码率控制模式的编码器 */
         sample_comm_venc_h265_cbr_param_init(chn_attr, gop, stats_time, frame_rate, size);
     } else if (rc_mode == SAMPLE_RC_FIXQP) {
         sample_comm_venc_h265_fixqp_param_init(chn_attr, gop, frame_rate);
@@ -1474,30 +1373,7 @@ static hi_s32 sample_comm_venc_h265_param_init(hi_venc_chn_attr *chn_attr,
         sample_print("%s,%d,rc_mode(%d) not support\n", __FUNCTION__, __LINE__, rc_mode);
         return HI_FAILURE;
     }
-    chn_attr->venc_attr.h265_attr.rcn_ref_share_buf_en = chn_param->is_rcn_ref_share_buf;
-
-    return HI_SUCCESS;
-}
-
-static hi_s32 sample_comm_venc_h265_param_init_x(hi_venc_chn_attr *chn_attr,
-    sample_comm_venc_chn_param *chn_param)
-{
-    sample_rc rc_mode = chn_param->rc_mode;
-    hi_u32 gop = chn_param->gop;
-    hi_u32 stats_time = chn_param->stats_time;
-    hi_u32 frame_rate = chn_param->frame_rate;
-    hi_pic_size size = chn_param->size;
-
-    chn_attr->venc_attr.h265_attr.frame_buf_ratio = SAMPLE_FRAME_BUF_RATIO_MIN;
-    if (rc_mode == SAMPLE_RC_CBR) {
-        sample_comm_venc_h265_cbr_param_init_x(chn_attr, gop, stats_time, frame_rate,chn_param);
-    } else if (rc_mode == SAMPLE_RC_VBR) {
-        sample_comm_venc_h265_vbr_param_init_x(chn_attr, gop, stats_time, frame_rate, chn_param);
-    } else {
-        sample_print("%s,%d,rc_mode(%d) not support\n", __FUNCTION__, __LINE__, rc_mode);
-        return HI_FAILURE;
-    }
-    chn_attr->venc_attr.h265_attr.rcn_ref_share_buf_en = chn_param->is_rcn_ref_share_buf;
+    chn_attr->venc_attr.h265_attr.rcn_ref_share_buf_en = chn_param->is_rcn_ref_share_buf; /* 是否使能帧节省模式 */
 
     return HI_SUCCESS;
 }
@@ -1528,12 +1404,14 @@ static hi_s32 sample_comm_venc_channel_param_init(sample_comm_venc_chn_param *ch
     hi_payload_type type = chn_param->type;
     hi_size venc_size = chn_param->venc_size;
 
-    chn_attr->venc_attr.type = type;
-    chn_attr->venc_attr.max_pic_width = venc_size.width;
-    chn_attr->venc_attr.max_pic_height = venc_size.height;
-    chn_attr->venc_attr.pic_width = venc_size.width;   /* the picture width */
-    chn_attr->venc_attr.pic_height = venc_size.height; /* the picture height */
+	/* 编码器属性 */
+    chn_attr->venc_attr.type = type; /* 编码协议类型 */
+    chn_attr->venc_attr.max_pic_width  = venc_size.width; /* 编码图像最大宽度 */
+    chn_attr->venc_attr.max_pic_height = venc_size.height; /* 编码图像最大高度 */
+    chn_attr->venc_attr.pic_width  = venc_size.width;   /* 编码图像宽度 the picture width */
+    chn_attr->venc_attr.pic_height = venc_size.height; /* 编码图像高度 the picture height */
 
+	/* 码流buffer大小, 以byte为单位 */
     if (type == HI_PT_MJPEG || type == HI_PT_JPEG) {
         chn_attr->venc_attr.buf_size =
             HI_ALIGN_UP(venc_size.width, 16) * HI_ALIGN_UP(venc_size.height, 16) * 4; /* 16 4 is a number */
@@ -1541,10 +1419,12 @@ static hi_s32 sample_comm_venc_channel_param_init(sample_comm_venc_chn_param *ch
         chn_attr->venc_attr.buf_size =
             HI_ALIGN_UP(venc_size.width * venc_size.height * 3 / 4, 64); /*  3  4 64 is a number */
     }
-    chn_attr->venc_attr.profile = profile;
-    chn_attr->venc_attr.is_by_frame = HI_TRUE; /* get stream mode is slice mode or frame mode? */
+    chn_attr->venc_attr.profile = profile; /* 编码的等级 */
+    chn_attr->venc_attr.is_by_frame = HI_TRUE; /* 帧/包模式获取码流  get stream mode is slice mode or frame mode? */
 
+	/* 编码码率统计时间，以秒为单位 */
     if (gop_attr->gop_mode == HI_VENC_GOP_MODE_SMART_P) {
+		/* 编码码率统计时间 = 长期参考帧的间隔, 必须是gop的整数倍 / 编码图像组（图像帧数）*/
         chn_param->stats_time = gop_attr->smart_p.bg_interval / chn_param->gop;
     } else {
         chn_param->stats_time = 1;
@@ -1577,63 +1457,16 @@ static hi_s32 sample_comm_venc_channel_param_init(sample_comm_venc_chn_param *ch
     return ret;
 }
 
-static hi_s32 sample_comm_venc_channel_param_init_x(sample_comm_venc_chn_param *chn_param, hi_venc_chn_attr *chn_attr)
-{
-    hi_s32 ret;
-    hi_venc_gop_attr *gop_attr = &chn_param->gop_attr;
-    hi_u32 profile = chn_param->profile;
-    hi_payload_type type = chn_param->type;
-    hi_size venc_size = chn_param->venc_size;
-
-    chn_attr->venc_attr.type = type;
-    chn_attr->venc_attr.max_pic_width = venc_size.width;
-    chn_attr->venc_attr.max_pic_height = venc_size.height;
-    chn_attr->venc_attr.pic_width = venc_size.width;   /* the picture width */
-    chn_attr->venc_attr.pic_height = venc_size.height; /* the picture height */
-
-    if (type == HI_PT_MJPEG || type == HI_PT_JPEG) {
-        chn_attr->venc_attr.buf_size =
-            HI_ALIGN_UP(venc_size.width, 16) * HI_ALIGN_UP(venc_size.height, 16) * 4; /* 16 4 is a number */
-    } else {
-        chn_attr->venc_attr.buf_size =
-            HI_ALIGN_UP(venc_size.width * venc_size.height * 3 / 4, 64); /*  3  4 64 is a number */
-    }
-    chn_attr->venc_attr.profile = profile;
-    chn_attr->venc_attr.is_by_frame = HI_TRUE; /* get stream mode is slice mode or frame mode? */
-
-    if (gop_attr->gop_mode == HI_VENC_GOP_MODE_SMART_P) {
-        chn_param->stats_time = gop_attr->smart_p.bg_interval / chn_param->gop;
-    } else {
-        chn_param->stats_time = 1;
-    }
-
-    switch (type) {
-        case HI_PT_H265:
-            ret = sample_comm_venc_h265_param_init_x(chn_attr, chn_param);
-            break;
-
-        case HI_PT_H264:
-            ret = sample_comm_venc_h264_param_init_x(chn_attr, chn_param);
-            break;
-
-        default:
-            sample_print("can't support this type (%d) in this version!\n", type);
-            return HI_ERR_VENC_NOT_SUPPORT;
-    }
-
-    sample_comm_venc_set_gop_attr(type, chn_attr, gop_attr);
-
-    return ret;
-}
-
 hi_s32 sample_comm_venc_create(hi_venc_chn venc_chn, sample_comm_venc_chn_param *chn_param)
 {
     hi_s32 ret;
     hi_venc_chn_attr venc_chn_attr;
     hi_pic_size size = chn_param->size;
-    chn_param->frame_rate = 30; /* 30 is a number */
-    chn_param->gop = 30; /* 30 is a number */
 
+    chn_param->frame_rate = 60; /* 30 is a number */
+    chn_param->gop = 30; /* 编码图像组 30 is a number */
+
+	/* 获取图像大小 */
     if (sample_comm_sys_get_pic_size(size, &chn_param->venc_size) != HI_SUCCESS) {
         sample_print("get picture size failed!\n");
         return HI_FAILURE;
@@ -1645,48 +1478,7 @@ hi_s32 sample_comm_venc_create(hi_venc_chn venc_chn, sample_comm_venc_chn_param 
         return ret;
     }
 
-    if ((ret = ss_mpi_venc_create_chn(venc_chn, &venc_chn_attr)) != HI_SUCCESS) {
-        sample_print("ss_mpi_venc_create_chn [%d] failed with %#x! ===\n", venc_chn, ret);
-        return ret;
-    }
-
-    if (chn_param->type == OT_PT_JPEG) {
-        return HI_SUCCESS;
-    }
-
-    if ((ret = sample_comm_venc_close_reencode(venc_chn)) != HI_SUCCESS) {
-        ss_mpi_venc_destroy_chn(venc_chn);
-        return ret;
-    }
-
-    return HI_SUCCESS;
-}
-
-hi_s32 sample_comm_venc_create_x(hi_venc_chn venc_chn, sample_comm_venc_chn_param *chn_param)
-{
-    hi_s32 ret;
-    hi_venc_chn_attr venc_chn_attr;
-    hi_pic_size size = chn_param->size;
-
-    //chn_param->frame_rate = 30; /* 30 is a number */
-
-
-
-
-   
-    chn_param->gop = 30; /* 30 is a number */
-
-    if (sample_comm_sys_get_pic_size(size, &chn_param->venc_size) != HI_SUCCESS) {
-        sample_print("get picture size failed!\n");
-        return HI_FAILURE;
-    }
-
-    /* step 1:  create venc channel */
-    if ((ret = sample_comm_venc_channel_param_init(chn_param, &venc_chn_attr)) != HI_SUCCESS) {
-        sample_print("venc_channel_param_init failed!\n");
-        return ret;
-    }
-
+	/* 创建编码通道 */
     if ((ret = hi_mpi_venc_create_chn(venc_chn, &venc_chn_attr)) != HI_SUCCESS) {
         sample_print("hi_mpi_venc_create_chn [%d] failed with %#x! ===\n", venc_chn, ret);
         return ret;
@@ -1697,6 +1489,7 @@ hi_s32 sample_comm_venc_create_x(hi_venc_chn venc_chn, sample_comm_venc_chn_para
     }
 
     if ((ret = sample_comm_venc_close_reencode(venc_chn)) != HI_SUCCESS) {
+		/* 销毁编码通道 */
         hi_mpi_venc_destroy_chn(venc_chn);
         return ret;
     }
@@ -1720,6 +1513,7 @@ hi_s32 sample_comm_venc_start(hi_venc_chn venc_chn, sample_comm_venc_chn_param *
     }
     /* step 2:  start recv venc pictures */
     start_param.recv_pic_num = -1;
+	/* 开启编码通道接收输入图像 */
     if ((ret = hi_mpi_venc_start_chn(venc_chn, &start_param)) != HI_SUCCESS) {
         sample_print("hi_mpi_venc_start_recv_pic failed with%#x! \n", ret);
         return HI_FAILURE;
@@ -1733,12 +1527,14 @@ hi_s32 sample_comm_venc_stop(hi_venc_chn venc_chn)
     hi_s32 ret;
 
     /* stop venc chn */
+	/* 停止编码通道接收输入图像 */
     ret = hi_mpi_venc_stop_chn(venc_chn);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_venc_stop_chn vechn[%d] failed with %#x!\n", venc_chn, ret);
     }
 
     /* distroy venc channel */
+	/* 销毁编码通道 */
     ret = hi_mpi_venc_destroy_chn(venc_chn);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_venc_destroy_chn vechn[%d] failed with %#x!\n", venc_chn, ret);
@@ -2594,70 +2390,6 @@ static hi_s32 sample_comm_set_name_save_stream(sample_comm_venc_stream_proc_info
     return HI_SUCCESS;
 }
 
-static int32_t sample_heif_create(hi_s32 index, const sample_comm_venc_stream_proc_info *stream_proc_info,
-    heif_handle *hdl)
-{
-    heif_config config;
-    if (snprintf_s(config.file_desc.input.url, FILE_NAME_LEN, FILE_NAME_LEN - 1,
-        "./stream_chn%d_%d%s", index, stream_proc_info->picture_cnt[index], ".heic") < 0) {
-        return SAMPLE_RETURN_NULL;
-    }
-    config.file_desc.file_type = HEIF_FILE_TYPE_URL;
-    config.config_type = HEIF_CONFIG_MUXER;
-    config.muxer_config.is_grid = false;
-    config.muxer_config.row_image_num = 1;
-    config.muxer_config.column_image_num = 1;
-    config.muxer_config.format_profile = HEIF_PROFILE_HEIC;
-    return heif_create(hdl, &config);
-}
-
-static hi_s32 sample_comm_save_h265_to_heic(hi_s32 index, const sample_comm_venc_stream_proc_info *stream_proc_info,
-    const hi_venc_stream *stream)
-{
-    hi_u32 i;
-    hi_u32 total_len = 0;
-    hi_s32 has_key = 0;
-    for (i = 0; i < stream->pack_cnt; i++) {
-        if (stream->pack[i].data_type.h265_type == HI_VENC_H265_NALU_IDR_SLICE) {
-            has_key = 1;
-        }
-        total_len += stream->pack[i].len - stream->pack[i].offset;
-    }
-    if (total_len > 0 && has_key == 1) {
-        heif_handle handle = NULL;
-        hi_s32 ret = sample_heif_create(index, stream_proc_info, &handle);
-        if (ret != 0) {
-            sample_print("HeifCreate error ret:%d\n", ret);
-        }
-        hi_u8 *data_buffer = (hi_u8 *)malloc(total_len);
-        if (data_buffer == NULL) {
-            sample_print("malloc error\n");
-            heif_destroy(handle);
-            return SAMPLE_RETURN_NULL;
-        }
-        hi_u32 write_len = 0;
-        for (i = 0; i < stream->pack_cnt; i++) {
-            if (memcpy_s(data_buffer + write_len, total_len - write_len,
-                stream->pack[i].addr + stream->pack[i].offset, stream->pack[i].len - stream->pack[i].offset) != EOK) {
-                sample_print("memcpy_s failed\n");
-            }
-            write_len += stream->pack[i].len;
-        }
-        heif_image_item item = {0};
-        item.timestamp = -1;
-        item.data = data_buffer;
-        item.length = write_len;
-        item.key_frame = true;
-        ret = heif_write_master_image(handle, 0, &item, 1);
-        if (data_buffer != NULL) {
-            free(data_buffer);
-        }
-        heif_destroy(handle);
-        return ret;
-    }
-    return 0;
-}
-
 static hi_s32 sample_comm_save_frame_to_file(hi_s32 index, sample_comm_venc_stream_proc_info *stream_proc_info,
     hi_venc_stream *stream, hi_venc_stream_buf_info *stream_buf_info, hi_payload_type *payload_type)
 {
@@ -2688,9 +2420,6 @@ static hi_s32 sample_comm_save_frame_to_file(hi_s32 index, sample_comm_venc_stre
         fchmod(fd, S_IRUSR | S_IWUSR);
     }
 
-    if (payload_type[index] == HI_PT_H265 && stream_proc_info->save_heif == HI_TRUE) {
-        (hi_void)sample_comm_save_h265_to_heic(index, stream_proc_info, stream);
-    }
 #ifndef __LITEOS__
     hi_unused(stream_buf_info);
     ret = sample_comm_venc_save_stream(stream_proc_info->file[index], stream);
@@ -2807,7 +2536,6 @@ hi_void *sample_comm_venc_get_venc_stream_proc(hi_void *p)
 
     para = (sample_venc_getstream_para *)p;
     stream_proc_info.chn_total = para->cnt;
-    stream_proc_info.save_heif = para->save_heif;
     /* step 1:  check & prepare save-file & venc-fd */
     if (stream_proc_info.chn_total >= HI_VENC_MAX_CHN_NUM) {
         sample_print("input count invalid\n");
@@ -2935,7 +2663,7 @@ hi_void *sample_comm_venc_rateauto_stream_proc(hi_void *p)
 
         vpss_chn_attr.depth = 3; /* 3 is a number */
         ret = hi_mpi_vpss_set_chn_attr(para->vpss_grp, para->vpss_chn[i], &vpss_chn_attr);
-        if (ret != HI_SUCCESS) {
+        if (ret == HI_SUCCESS) {
             sample_print("hi_mpi_vpss_set_chn_attr err: 0x%x", ret);
         }
     }
@@ -3178,7 +2906,6 @@ hi_void *sample_comm_venc_get_venc_stream_proc_svc_t(hi_void *p)
 
     para = (sample_venc_getstream_para *)p;
     stream_proc_info.chn_total = para->cnt;
-    stream_proc_info.save_heif = para->save_heif;
 
     /* step 1:  check & prepare save-file & venc-fd */
     if (stream_proc_info.chn_total >= HI_VENC_MAX_CHN_NUM) {
@@ -3221,12 +2948,6 @@ hi_void *sample_comm_venc_get_venc_stream_proc_svc_t(hi_void *p)
         }
     }
     return HI_NULL;
-}
-
-hi_void sample_comm_venc_set_save_heif(hi_bool save_heif)
-{
-    g_para.save_heif = save_heif;
-    sample_print("set save heif flag: %d!\n", save_heif);
 }
 
 /* start get venc stream process thread */
@@ -3303,9 +3024,9 @@ hi_s32 sample_comm_venc_stop_get_stream_x(hi_s32 chn_id[], hi_s32 chn_num)
     return HI_SUCCESS;
 }
 
-hi_s32 sample_comm_venc_stop_send_qpmap_frame(td_void)
+hi_s32 sample_comm_venc_stop_send_qpmap_frame(hi_void)
 {
-    if (g_qpmap_send_frame_para.thread_start == TD_TRUE) {
+    if (g_qpmap_send_frame_para.thread_start == HI_TRUE) {
         g_qpmap_send_frame_para.thread_start = HI_FALSE;
         pthread_join(g_venc_qpmap_pid, 0);
     }

@@ -97,6 +97,7 @@ hi_s32 sample_comm_vo_get_width_height(hi_vo_intf_sync intf_sync, hi_u32 *width,
     return HI_SUCCESS;
 }
 
+/* 启用视频输出设备 */
 hi_s32 sample_comm_vo_start_dev(hi_vo_dev vo_dev, const hi_vo_pub_attr *pub_attr,
     const hi_vo_user_sync_info *sync_info, hi_u32 dev_frame_rate)
 {
@@ -106,6 +107,7 @@ hi_s32 sample_comm_vo_start_dev(hi_vo_dev vo_dev, const hi_vo_pub_attr *pub_attr
         check_null_ptr_return(sync_info);
     }
 
+	/* 设置视频输出设备的公共属性 */
     ret = hi_mpi_vo_set_pub_attr(vo_dev, pub_attr);
     if (ret != HI_SUCCESS) {
         sample_print("failed with %#x!\n", ret);
@@ -113,12 +115,14 @@ hi_s32 sample_comm_vo_start_dev(hi_vo_dev vo_dev, const hi_vo_pub_attr *pub_attr
     }
 
     if (pub_attr->intf_sync == HI_VO_OUT_USER) {
+		/* 设置用户接口时序信息 */
         ret = hi_mpi_vo_set_user_sync_info(vo_dev, sync_info);
         if (ret != HI_SUCCESS) {
             sample_print("failed with %#x!\n", ret);
             return HI_FAILURE;
         }
 
+		/* 设置设备用户时序下设备帧率 */
         ret = hi_mpi_vo_set_dev_frame_rate(vo_dev, dev_frame_rate);
         if (ret != HI_SUCCESS) {
             sample_print("failed with %#x!\n", ret);
@@ -126,6 +130,7 @@ hi_s32 sample_comm_vo_start_dev(hi_vo_dev vo_dev, const hi_vo_pub_attr *pub_attr
         }
     }
 
+	/* 使能视频输出设备 */
     ret = hi_mpi_vo_enable(vo_dev);
     if (ret != HI_SUCCESS) {
         sample_print("failed with %#x!\n", ret);
@@ -135,10 +140,12 @@ hi_s32 sample_comm_vo_start_dev(hi_vo_dev vo_dev, const hi_vo_pub_attr *pub_attr
     return HI_SUCCESS;
 }
 
+/* 禁用视频输出设备 */
 hi_s32 sample_comm_vo_stop_dev(hi_vo_dev vo_dev)
 {
     hi_s32 ret;
 
+	/* 禁用视频输出设备 */
     ret = hi_mpi_vo_disable(vo_dev);
     if (ret != HI_SUCCESS) {
         sample_print("failed with %#x!\n", ret);
@@ -213,6 +220,7 @@ hi_s32 sample_comm_vo_get_wnd_info(sample_vo_mode mode, sample_vo_wnd_info *wnd_
     return HI_SUCCESS;
 }
 
+/* 获取视频输出通道属性 */
 hi_s32 sample_comm_vo_get_chn_attr(sample_vo_wnd_info *wnd_info, hi_vo_video_layer_attr *layer_attr, hi_s32 chn,
     hi_vo_chn_attr *chn_attr)
 {
@@ -223,8 +231,10 @@ hi_s32 sample_comm_vo_get_chn_attr(sample_vo_wnd_info *wnd_info, hi_vo_video_lay
     check_null_ptr_return(layer_attr);
     check_null_ptr_return(chn_attr);
 
-    width = layer_attr->img_size.width;
-    height = layer_attr->img_size.height;
+    width  = layer_attr->img_size.width;   /* 图像宽 */
+    height = layer_attr->img_size.height; /* 图像高 */
+
+	/* 根据显示分屏模式，获取视频输出通道矩形显示区域 */
     if (wnd_info->mode != VO_MODE_2X4) {
         chn_attr->rect.x = HI_ALIGN_DOWN((width / wnd_info->square) * (chn % wnd_info->square), 2);  /* 2: 2 align */
         chn_attr->rect.y = HI_ALIGN_DOWN((height / wnd_info->square) * (chn / wnd_info->square), 2); /* 2: 2 align */
@@ -233,12 +243,13 @@ hi_s32 sample_comm_vo_get_chn_attr(sample_vo_wnd_info *wnd_info, hi_vo_video_lay
     } else {
         chn_attr->rect.x = HI_ALIGN_DOWN((width / wnd_info->col) * (chn % wnd_info->col), 2);  /* 2: 2 align */
         chn_attr->rect.y = HI_ALIGN_DOWN((height / wnd_info->row) * (chn / wnd_info->col), 2); /* 2: 2 align */
-        chn_attr->rect.width = HI_ALIGN_DOWN(width / wnd_info->col, 2);                        /* 2: 2 align */
+        chn_attr->rect.width  = HI_ALIGN_DOWN(width / wnd_info->col, 2);                        /* 2: 2 align */
         chn_attr->rect.height = HI_ALIGN_DOWN(height / wnd_info->row, 2);                      /* 2: 2 align */
     }
 
-    chn_attr->priority = 0;
-    chn_attr->deflicker_en = HI_FALSE;
+    chn_attr->priority = 0; /* 视频通道叠加优先级 */
+    chn_attr->deflicker_en = HI_FALSE; /* 是否使能抗闪烁 */
+
     return HI_SUCCESS;
 }
 
@@ -256,6 +267,7 @@ hi_s32 sample_comm_vo_start_chn(hi_vo_layer vo_layer, sample_vo_mode mode)
         return ret;
     }
 
+	/* 获取视频层属性 */
     ret = hi_mpi_vo_get_video_layer_attr(vo_layer, &layer_attr);
     if (ret != HI_SUCCESS) {
         sample_print("failed with %#x!\n", ret);
@@ -712,7 +724,7 @@ hi_s32 sample_comm_vo_start_vo(const sample_vo_cfg *vo_config)
     hi_s32 ret;
     hi_vo_dev vo_dev;
     hi_vo_layer vo_layer;
-    hi_vo_pub_attr vo_pub_attr = { 0 };
+    hi_vo_pub_attr vo_pub_attr = { 0 }; /* 视频输出设备公共属性 */
     hi_vo_video_layer_attr layer_attr = { 0 };
 
     check_null_ptr_return(vo_config);
@@ -721,10 +733,11 @@ hi_s32 sample_comm_vo_start_vo(const sample_vo_cfg *vo_config)
     vo_layer = vo_config->vo_dev;
 
     /* set and start VO device vo_dev#. */
-    vo_pub_attr.intf_type = vo_config->vo_intf_type;
-    vo_pub_attr.intf_sync = vo_config->intf_sync;
-    vo_pub_attr.bg_color = vo_config->bg_color;
+    vo_pub_attr.intf_type = vo_config->vo_intf_type; /* 接口类型 */
+    vo_pub_attr.intf_sync = vo_config->intf_sync; /* 接口时序 */
+    vo_pub_attr.bg_color = vo_config->bg_color; /* 设备背景色 */
     (hi_void)memcpy_s(&vo_pub_attr.sync_info, sizeof(hi_vo_sync_info), &vo_config->sync_info, sizeof(hi_vo_sync_info));
+	/* 启用视频输出设备 */
     ret = sample_comm_vo_start_dev(vo_dev, &vo_pub_attr, &vo_config->user_sync, vo_config->dev_frame_rate);
     if (ret != HI_SUCCESS) {
         sample_print("sample_comm_vo_start_dev failed!\n");

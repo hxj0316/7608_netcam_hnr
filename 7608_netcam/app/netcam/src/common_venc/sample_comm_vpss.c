@@ -18,6 +18,7 @@
 #define VPSS_DEFAULT_WIDTH  3840
 #define VPSS_DEFAULT_HEIGHT 2160
 
+/*配置 VPSS Group属性 */
 hi_void sample_comm_vpss_get_default_grp_attr(hi_vpss_grp_attr *grp_attr)
 {
     grp_attr->nr_en                     = HI_TRUE;
@@ -30,7 +31,7 @@ hi_void sample_comm_vpss_get_default_grp_attr(hi_vpss_grp_attr *grp_attr)
     grp_attr->max_dei_width             = 0;
     grp_attr->max_dei_height            = 0;
     grp_attr->dynamic_range             = HI_DYNAMIC_RANGE_SDR8;
-    grp_attr->pixel_format              = HI_PIXEL_FORMAT_YUV_SEMIPLANAR_420;
+    grp_attr->pixel_format              = HI_PIXEL_FORMAT_YVU_SEMIPLANAR_420;
     grp_attr->dei_mode                  = HI_VPSS_DEI_MODE_OFF;
     grp_attr->buf_share_chn             = HI_VPSS_CHN0;
     grp_attr->nr_attr.nr_type           = HI_VPSS_NR_TYPE_VIDEO_NORM;
@@ -40,6 +41,7 @@ hi_void sample_comm_vpss_get_default_grp_attr(hi_vpss_grp_attr *grp_attr)
     grp_attr->frame_rate.dst_frame_rate = -1;
 }
 
+/* 配置 VPSS物理通道的属性 */
 hi_void sample_comm_vpss_get_default_chn_attr(hi_vpss_chn_attr *chn_attr)
 {
     chn_attr->mirror_en                 = HI_FALSE;
@@ -51,27 +53,37 @@ hi_void sample_comm_vpss_get_default_chn_attr(hi_vpss_chn_attr *chn_attr)
     chn_attr->chn_mode                  = HI_VPSS_CHN_MODE_USER;
     chn_attr->video_format              = HI_VIDEO_FORMAT_LINEAR;
     chn_attr->dynamic_range             = HI_DYNAMIC_RANGE_SDR8;
-    chn_attr->pixel_format              = HI_PIXEL_FORMAT_YUV_SEMIPLANAR_420;
+    chn_attr->pixel_format              = HI_PIXEL_FORMAT_YVU_SEMIPLANAR_420;
     chn_attr->compress_mode             = HI_COMPRESS_MODE_SEG;
     chn_attr->aspect_ratio.mode         = HI_ASPECT_RATIO_NONE;
     chn_attr->frame_rate.src_frame_rate = -1;
     chn_attr->frame_rate.dst_frame_rate = -1;
 }
 
+
+/// @brief 启动一个 VPSS (Video Process Sub-System, 视频处理子系统) 组内的所有通道
+/// @param grp VPSS 组号
+/// @param chn_enable VPSS 组的通道是否启用
+/// @param chn_attr VPSS 组的通道属性
+/// @param chn_array_size VPSS 组内的通道总数, 一个VPSS组提供多个通道
+/// @return 
 static hi_s32 sample_common_vpss_start_chn(hi_vpss_grp grp, const hi_bool *chn_enable,
-                                           const hi_vpss_chn_attr *chn_attr, hi_u32 chn_array_size)
+    const hi_vpss_chn_attr *chn_attr, hi_u32 chn_array_size)
 {
-    hi_vpss_chn vpss_chn;
+    hi_vpss_chn vpss_chn; // VPSS 组的通道号
     hi_s32 ret, i;
 
     for (i = 0; i < (hi_s32)chn_array_size; ++i) {
         if (chn_enable[i] == HI_TRUE) {
             vpss_chn = i;
+			/* 设置一个 VPSS 组的一个物理通道属性 */
             ret = hi_mpi_vpss_set_chn_attr(grp, vpss_chn, &chn_attr[vpss_chn]);
             if (ret != HI_SUCCESS) {
                 sample_print("hi_mpi_vpss_set_chn_attr failed with %#x\n", ret);
                 goto disable_chn;
             }
+
+			/* 启用一个 VPSS 组的一个通道 */
             ret = hi_mpi_vpss_enable_chn(grp, vpss_chn);
             if (ret != HI_SUCCESS) {
                 sample_print("hi_mpi_vpss_enable_chn failed with %#x\n", ret);
@@ -85,6 +97,7 @@ disable_chn:
     for (i = i - 1; i >= 0; i--) {
         if (chn_enable[i] == HI_TRUE) {
             vpss_chn = i;
+			/* 禁用一个 VPSS 组的一个通道 */
             ret = hi_mpi_vpss_disable_chn(grp, vpss_chn);
             if (ret != HI_SUCCESS) {
                 sample_print("hi_mpi_vpss_disable_chn failed with %#x!\n", ret);
@@ -94,6 +107,13 @@ disable_chn:
     return HI_FAILURE;
 }
 
+/// @brief 启用一个 VPSS 组
+/// @param grp  VPSS 组号
+/// @param chn_enable 是否启用 VPSS 组的所有通道
+/// @param grp_attr VPSS 组属性
+/// @param chn_attr VPSS 组的物理通道的属性
+/// @param chn_array_size VPSS 组内物理通道的数量
+/// @return 
 hi_s32 sample_common_vpss_start(hi_vpss_grp grp, const hi_bool *chn_enable,
     const hi_vpss_grp_attr *grp_attr, const hi_vpss_chn_attr *chn_attr, hi_u32 chn_array_size)
 {
@@ -103,17 +123,22 @@ hi_s32 sample_common_vpss_start(hi_vpss_grp grp, const hi_bool *chn_enable,
             chn_array_size, HI_VPSS_MAX_PHYS_CHN_NUM);
         return HI_FAILURE;
     }
+
+	/* 创建一个VPSS组 */
     ret = hi_mpi_vpss_create_grp(grp, grp_attr);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vpss_create_grp(grp:%d) failed with %#x!\n", grp, ret);
         return HI_FAILURE;
     }
+
+	/* 启动一个 VPSS 组 */
     ret = hi_mpi_vpss_start_grp(grp);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vpss_start_grp failed with %#x\n", ret);
         goto destroy_grp;
     }
 
+	// 启动 一个 VPSS 组内的所有通道
     ret = sample_common_vpss_start_chn(grp, chn_enable, chn_attr, HI_VPSS_MAX_PHYS_CHN_NUM);
     if (ret != HI_SUCCESS) {
         goto stop_grp;
@@ -122,11 +147,13 @@ hi_s32 sample_common_vpss_start(hi_vpss_grp grp, const hi_bool *chn_enable,
     return HI_SUCCESS;
 
 stop_grp:
+	// 停止一个 VPSS 组
     ret = hi_mpi_vpss_stop_grp(grp);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vpss_stop_grp failed with %#x!\n", ret);
     }
 destroy_grp:
+	// 销毁一个VPSS组
     ret = hi_mpi_vpss_destroy_grp(grp);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vpss_destroy_grp failed with %#x!\n", ret);
@@ -134,6 +161,11 @@ destroy_grp:
     return HI_FAILURE;
 }
 
+/// @brief 停止一个 VPSS 组
+/// @param grp VPSS 组号
+/// @param chn_enable 是否禁用 VPSS 组的所有通道
+/// @param chn_array_size VPSS 组内物理通道的数量
+/// @return 
 hi_s32 sample_common_vpss_stop(hi_vpss_grp grp, const hi_bool *chn_enable, hi_u32 chn_array_size)
 {
     hi_s32 i;
@@ -148,6 +180,7 @@ hi_s32 sample_common_vpss_stop(hi_vpss_grp grp, const hi_bool *chn_enable, hi_u3
     for (i = 0; i < HI_VPSS_MAX_PHYS_CHN_NUM; ++i) {
         if (chn_enable[i] == HI_TRUE) {
             vpss_chn = i;
+			// 禁用 VPSS 组内的一个通道
             ret = hi_mpi_vpss_disable_chn(grp, vpss_chn);
             if (ret != HI_SUCCESS) {
                 sample_print("hi_mpi_vpss_disable_chn failed with %#x!\n", ret);
@@ -155,11 +188,13 @@ hi_s32 sample_common_vpss_stop(hi_vpss_grp grp, const hi_bool *chn_enable, hi_u3
         }
     }
 
+	// 停止一个 VPSS 组
     ret = hi_mpi_vpss_stop_grp(grp);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vpss_stop_grp failed with %#x!\n", ret);
     }
 
+	// 销毁一个VPSS组
     ret = hi_mpi_vpss_destroy_grp(grp);
     if (ret != HI_SUCCESS) {
         sample_print("hi_mpi_vpss_destroy_grp failed with %#x!\n", ret);
