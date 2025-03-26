@@ -1865,6 +1865,9 @@ static int web_upgrade_read(HTTP_OPS *ops, void *arg)
     int bodyLen;
     int fd;
     int recvLen = 0;
+    printf("hxj test_333\n");
+    printf("hxj test_333\n");
+    printf("hxj test_333\n");
 
     if (netcam_get_update_status() < 0)
     {
@@ -1939,6 +1942,129 @@ ERROR_EXIT:
 
     return HPE_RET_OUTOF_MEMORY;
 }
+
+//********OCR 算法更新**********//
+static int ai_upgrade_read_cb(HTTP_OPS* ops, void* arg)
+{
+        int data = 1;
+        char retData[12];
+        sprintf(retData,"%d",data);
+
+        //PRINT_INFO();
+        ops->set_body_ex(ops,(char*)retData,strlen(retData));
+        return HPE_RET_DISCONNECT;
+}
+
+void restart_eac_ocr()
+{
+    // 停止现有的 eac_ocr 进程
+    printf("Stopping eac_ocr process...\n");
+    system("pkill -f eac_ocr");  // 使用 `pkill` 根据进程名停止进程
+
+    // 给一点时间确保进程已停止
+    sleep(2);
+
+    // 启动新的 eac_ocr 进程
+    printf("Starting eac_ocr process...\n");
+    int ret = system("/sharefs/ocr/bin/eac_ocr &");  // 请替换为 eac_ocr 程序的实际路径
+    if (ret == -1) {
+        perror("Failed to start eac_ocr");
+    } else {
+        printf("eac_ocr restarted successfully.\n");
+    }
+}
+
+static int ai_upgrade_read(HTTP_OPS *ops, void *arg)
+{
+    char *data = NULL;
+    char *tag;
+    int bodyLen;
+    int fd;
+    int recvLen = 0;
+    printf("hxj test\n");
+    printf("hxj test\n");
+    printf("hxj test\n");
+    if (netcam_get_update_status() < 0)
+    {
+        PRINT_ERR("is updating..............\n");
+        return HPE_RET_OUTOF_MEMORY;
+    }
+
+    tag = (char *)ops->get_tag(ops, (char *)"Content-Length");
+    bodyLen = atoi(tag);
+
+    if (bodyLen <= 0 || bodyLen > (16 * 1024 * 1024 + 4 * 1024))
+    {
+        goto ERROR_EXIT;
+    }
+
+    printf("hxj test_11\n");
+    printf("hxj test_11\n");
+    printf("hxj test_11\n");
+    fd = ops->get_connection_fd(ops);
+    if (fd > 0)
+    {
+            printf("netcam_update_relase_system_resource test!!!\n");
+            printf("netcam_update_relase_system_resource test!!!\n");
+        netcam_update_relase_system_resource();
+
+        recvLen = 0;
+        data = update_recv_http_body(fd, bodyLen, &recvLen);
+        if (recvLen == bodyLen && data != NULL)
+        {
+          if (netcam_update_http_style(data, bodyLen, NULL) == 0)
+            {
+
+                printf("Upgrade package processed successfully\n");
+
+                if (rename("/sharefs/ocr/bin/eac_ocr", "/sharefs/ocr/bin/eac_ocr_bak") != 0)
+                {
+                    PRINT_ERR("Failed to rename /sharefs/ocr/bin/eac_ocr to /sharefs/ocr/bin/eac_ocr_bak\n");
+                }
+
+                int file_fd = open("/sharefs/ocr/bin/eac_ocr", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (file_fd < 0)
+                {
+                    PRINT_ERR("Failed to open /sharefs/ocr/bin/eac_ocr for writing\n");
+                    goto ERROR_EXIT;
+                }
+
+                ssize_t written_len = write(file_fd, upgrade_data, recvLen);
+                if (written_len != recvLen)
+                {
+                    PRINT_ERR("Failed to write all data to /sharefs/ocr/bin/eac_ocr\n");
+                    close(file_fd);
+                    goto ERROR_EXIT;
+                }
+
+                close(file_fd);
+                printf("Data successfully saved to /sharefs/ocr/bin/eac_ocr\n");
+
+                sleep(5);
+                restart_eac_ocr();
+
+            }
+            else
+            {
+                PRINT_ERR("Failed to process the upgrade package\n");
+            }
+        }
+        else
+        {
+            PRINT_ERR("Received data package error, received: %d, expected: %d\n", recvLen, bodyLen);
+        }
+    }
+
+ERROR_EXIT:
+    if (data)
+    {
+        free(data);
+    }
+    netcam_sys_operation(NULL, (void *)SYSTEM_OPERATION_RESTART_APP);
+
+    return HPE_RET_OUTOF_MEMORY;
+}
+//*****************************//
 
 
 //static int web_upgrade_read(HTTP_OPS* ops, void* arg)
@@ -2063,7 +2189,7 @@ static int device_upgrade(HTTP_OPS* ops, void* arg)
 		else
 		{
 			if(data)
-				free(data);
+			free(data);
 			PRINT_INFO(" recv date package error,recv:%d,all:%d\n",recvLen,bodyLen);
 		}
 
@@ -2810,6 +2936,8 @@ void netcam_http_web_init()
 	http_mini_add_cgi_callback("/sd", web_sdinfo_get,METHOD_GET|METHOD_PUT, (void *)0);
 	http_mini_add_cgi_callback("/web_upgrade", web_upgrade_read_cb, METHOD_PUT|METHOD_POST, (void *)0);
 	http_mini_add_read_callback("/web_upgrade", web_upgrade_read);
+	http_mini_add_cgi_callback("/ai_upgrade", ai_upgrade_read_cb, METHOD_PUT|METHOD_POST, (void *)0);
+	http_mini_add_read_callback("/ai_upgrade", ai_upgrade_read);
 	http_mini_add_cgi_callback("/check_login",web_check_login,METHOD_GET|METHOD_PUT, (void *)0);
 	//the format of http body is updating package
 	http_mini_add_cgi_callback("/device_upgrade", device_upgrade_cb, METHOD_PUT|METHOD_POST, (void *)0);
