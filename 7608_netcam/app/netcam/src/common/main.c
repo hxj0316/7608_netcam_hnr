@@ -383,7 +383,7 @@ static void start_all_module()
 #ifdef MODULE_SUPPORT_MOJING
     if (mojing_get_onvif_status() == 1)
 #endif
-    rtsp_start();
+    //rtsp_start();
 #endif
 
 

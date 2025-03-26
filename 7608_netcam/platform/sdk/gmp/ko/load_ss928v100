@@ -14,10 +14,10 @@
 ####      os08b10             ####
 ####################Variables Definition##########################
 
-SNS_TYPE0=os08a20;               # sensor type
-SNS_TYPE1=os08a20;               # sensor type
-SNS_TYPE2=os08a20;               # sensor type
-SNS_TYPE3=os08a20;               # sensor type
+SNS_TYPE0=imx675;               # sensor type
+SNS_TYPE1=imx675;               # sensor type
+SNS_TYPE2=imx675;               # sensor type
+SNS_TYPE3=imx675;               # sensor type
 
 #DDR start:0x40000000, IPCM(2M); DSP(62M); MCU(192M); kernel start:0x50000000,  OS(512M); MMZ start:0x70000000
 mem_total=4096                # 4096M, total mem

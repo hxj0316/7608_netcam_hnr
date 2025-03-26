@@ -9,7 +9,6 @@
 #include <string.h>
 #include "securec.h"
 #include <limits.h>
-#include "sample_comm.h"
 
 #define BITS_NUM_PER_BYTE 8
 #define BYTE_PER_PIX_1555 2
@@ -61,10 +60,10 @@ hi_s32 get_bmp_info(const hi_char *filename, osd_bit_map_file_header *bmp_file_h
     hi_u16 bf_type;
     hi_char *path = HI_NULL;
 
-    check_null_ptr_return(filename);
-    check_null_ptr_return(bmp_file_header);
-    check_null_ptr_return(bmp_info);
-
+    if (filename == HI_NULL) {
+        printf("osd_get_bmp: filename=HI_NULL\n");
+        return HI_FAILURE;
+    }
     if (strlen(filename) > PATH_MAX - 1) {
         printf("file name Extra long\n");
         return HI_FAILURE;
@@ -582,7 +581,7 @@ read_bmp_failed:
 hi_char *get_ext_name(const hi_char *filename)
 {
     hi_char *pret = HI_NULL;
-    size_t len;
+    hi_u32 len;
 
     if (filename == HI_NULL) {
         printf("filename can't be null!");
@@ -668,8 +667,6 @@ hi_s32 load_canvas_ex(const hi_char *filename, osd_logo *video_logo, osd_color_f
 hi_s32 load_bit_map_to_surface(const hi_char *file_name, const osd_surface *surface, hi_u8 *virt)
 {
     osd_logo logo;
-    check_null_ptr_return(file_name);
-    check_null_ptr_return(surface);
     logo.stride = surface->stride;
     logo.rgb_buf = virt;
 
@@ -680,8 +677,6 @@ hi_s32 create_surface_by_bit_map(const hi_char *file_name, osd_surface *surface,
 {
     osd_logo logo;
 
-    check_null_ptr_return(file_name);
-    check_null_ptr_return(surface);
     logo.rgb_buf = virt;
     if (load_image_ex(file_name, &logo, surface->color_format) < 0) {
         printf("load bmp error!\n");
@@ -700,9 +695,6 @@ hi_s32 create_surface_by_canvas(const hi_char *file_name, osd_surface *surface, 
 {
     osd_logo logo;
 
-    check_null_ptr_return(file_name);
-    check_null_ptr_return(surface);
-    check_null_ptr_return(canvas_size);
     logo.rgb_buf = virt;
     logo.width = canvas_size->width;
     logo.height = canvas_size->height;

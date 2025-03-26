@@ -587,6 +587,7 @@ LIBRARIES += sns_os05a10_2l_slave
 LIBRARIES += sns_os08a20
 LIBRARIES += sns_sc850sl
 LIBRARIES += sns_os08b10
+LIBRARIES += sns_imx675
 LIBRARIES += sns_gc4653
 LIBRARIES += sns_imx347_slave
 LIBRARIES += vqe_aec

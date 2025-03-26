@@ -57,7 +57,7 @@ static ot_audio_sample_rate g_out_sample_rate = OT_AUDIO_SAMPLE_RATE_BUTT;
 static td_u32 g_ai_vqe_type = 1;
 static void change_state(int signo);
 
-#define BIG_STREAM_SIZE PIC_2688X1520
+#define BIG_STREAM_SIZE PIC_2592X1944
 #define SMALL_STREAM_SIZE PIC_720P
 static int aenc_open = 0;
 
@@ -633,7 +633,7 @@ static td_void sample_venc_set_video_param(sample_comm_venc_chn_param *chn_param
     chn_param[0].gop_attr = gop_attr;
     chn_param[0].type = payload[0];
    // chn_param[0].size = pic_size[0];
-    chn_param[0].size = PIC_3840X2160;
+    chn_param[0].size = PIC_2592X1944;
     chn_param[0].rc_mode = rc_mode[0];
     chn_param[0].profile = profile[0];
     chn_param[0].is_rcn_ref_share_buf = share_buf_en;
