@@ -43,7 +43,7 @@ int netcam_http_onvif_init(void)
 
     sleep(3);
 
-      uart = init_uart(2);
+      uart = init_uart(5);
   //  pthread_t pid_485;
   //  pthread_create(&pid_485, 0, begin_485, NULL);
   // 

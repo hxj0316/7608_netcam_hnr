@@ -508,6 +508,16 @@ void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc,int uart
 #define IRCUT_OFF 0x00
 #define IRCUT_ON 0X01
 
+#define ZOOM_SYNC 0xDF
+#define ZOOM_TEST_1 0x01
+#define ZOOM_TEST_2 0X02
+#define ZOOM_TEST_STOP 0X03
+
+#define FOCUS_SYNC 0x3F
+#define FOCUS_TEST_1 0x01
+#define FOCUS_TEST_2 0X02
+#define FOCUS_TEST_STOP 0X03
+
 #define UP 0x08
 #define DOWN 0x10
 #define LEFT 0x04
@@ -521,6 +531,131 @@ void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc,int uart
 #define SET_PRESET 0x03
 #define DEL_PRESET 0x05
 #define CALL_PRESET 0x07
+int32_t focus_test_1()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_SYNC;
+    length++;
+    bytes[length] = FOCUS_TEST_1;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_test_2()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_SYNC;
+    length++;
+    bytes[length] = FOCUS_TEST_2;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_test_stop()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_SYNC;
+    length++;
+    bytes[length] = FOCUS_TEST_STOP;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t zoom_test_1()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = ZOOM_SYNC;
+    length++;
+    bytes[length] = ZOOM_TEST_1;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t zoom_test_2()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = ZOOM_SYNC;
+    length++;
+    bytes[length] = ZOOM_TEST_2;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t zoom_test_stop()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = ZOOM_SYNC;
+    length++;
+    bytes[length] = ZOOM_TEST_STOP;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
 
 uint32_t ircut_off()
 {
