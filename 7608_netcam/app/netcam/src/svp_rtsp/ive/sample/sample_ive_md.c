@@ -1091,135 +1091,128 @@ static td_s32 sample_ive_md_pause(td_void)
     return TD_FALSE;
 }
 
+
 //************************UDP heartbeat server******************************//
 
-#define SERVER_IP "192.168.2.66"
+#define SEND_PORT 1778
+#define RECV_PORT 1779
 #define CLIENT_IP "192.168.2.103"
-#define UDP_CLIENT_PORT 1789
-#define UDP_SERVER_PORT 1790
-#define BUF_SIZE 8
-#define TIMEOUT_SEC 5
-#define LOG_FILE "server.log"
-#define MAX_LOG_LINES 10000
+#define PACKET_SIZE 8
+#define TIMEOUT 5  // 超时时间（秒）
 
-unsigned char heartbeat[BUF_SIZE] = {0xBF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFB};
-volatile int running = 1;
-int sock_send, sock_recv;
-struct sockaddr_in client_addr;
-socklen_t addr_len = sizeof(client_addr);
+unsigned char heartbeat_data[PACKET_SIZE] = {0xBF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFB};
 time_t last_recv_time;
-FILE *log_fp;
-int log_lines = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void log_msg(const char *format, ...) {
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    char timestamp[64];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", t);
-
-    if (log_lines >= MAX_LOG_LINES) {
-        freopen(LOG_FILE, "w", log_fp);
-        log_lines = 0;
+void print_packet(const char* prefix, const unsigned char* data) {
+    printf("%s [ ", prefix);
+    for (int i = 0; i < PACKET_SIZE; i++) {
+        printf("%02X ", data[i]);
     }
-
-    fprintf(log_fp, "[%s] ", timestamp);
-
-    va_list args;
-    va_start(args, format);
-    vfprintf(log_fp, format, args);
-    va_end(args);
-
-    fprintf(log_fp, "\n");
-    fflush(log_fp);
-    log_lines++;
+    printf("]\n");
 }
 
-void handle_sigint(int sig) {
-    log_msg("[Server] Caught signal %d, exiting...", sig);
-    running = 0;
-    close(sock_send);
-    close(sock_recv);
-    if (log_fp) fclose(log_fp);
-    exit(0);
+int is_valid_packet(const unsigned char* buf, ssize_t len) {
+    return (len == PACKET_SIZE) &&
+           (buf[0] == 0xBF) &&
+           (buf[1] == 0xFF) &&
+           (buf[6] == 0xFF) &&
+           (buf[7] == 0xFB) &&
+           (buf[3] == 0x00) &&
+           (buf[4] == 0x00) &&
+           (buf[5] == 0x00);
 }
 
-void *send_heartbeat(void *arg) {
-    while (running) {
-        sendto(sock_recv, &heartbeat, BUF_SIZE, 0, (struct sockaddr *)&client_addr, addr_len);
+void* send_thread(void* arg) {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    struct sockaddr_in server_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(SEND_PORT),
+        .sin_addr.s_addr = inet_addr("192.168.2.99")
+    };
+    bind(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
 
-	 printf("[Server] Sending: ");
-        for (int i = 0; i < BUF_SIZE; i++) printf("%02X ", heartbeat[i]);
-        printf("\n");
+    struct sockaddr_in client_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(SEND_PORT),
+        .sin_addr.s_addr = inet_addr(CLIENT_IP)
+    };
 
-	log_msg("[Server] Sent heartbeat: %02X %02X %02X %02X %02X %02X %02X %02X",
-            heartbeat[0], heartbeat[1], heartbeat[2], heartbeat[3],
-            heartbeat[4], heartbeat[5], heartbeat[6], heartbeat[7]);
-        time_t now = time(NULL);
-        if (difftime(now, last_recv_time) > TIMEOUT_SEC) {
-           printf("[Server] Client timeout, resetting heartbeat byte 2 to 0x00");
-	   log_msg("[Server] Client timeout, resetting heartbeat byte 2 to 0x00");
-	    heartbeat[2] = 0x00;
-        }
+    while(1) {
+        pthread_mutex_lock(&mutex);
+        unsigned char packet[PACKET_SIZE];
+        memcpy(packet, heartbeat_data, PACKET_SIZE);
+        pthread_mutex_unlock(&mutex);
 
+        sendto(sock, packet, PACKET_SIZE, 0,
+              (struct sockaddr*)&client_addr, sizeof(client_addr));
+        print_packet("[Server] Sent:", packet);
         sleep(1);
+    }
+    close(sock);
+    return NULL;
+}
+
+void* recv_thread(void* arg) {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(RECV_PORT),
+        .sin_addr.s_addr = inet_addr("192.168.2.99")
+    };
+    bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+
+    while(1) {
+        unsigned char buf[PACKET_SIZE];
+        struct sockaddr_in client_addr;
+        socklen_t len = sizeof(client_addr);
+
+        ssize_t recv_len = recvfrom(sock, buf, PACKET_SIZE, 0,
+                                   (struct sockaddr*)&client_addr, &len);
+
+        if (is_valid_packet(buf, recv_len)) {
+            pthread_mutex_lock(&mutex);
+            heartbeat_data[2] = 0x01;
+            last_recv_time = time(NULL);  // 更新最后接收时间
+            pthread_mutex_unlock(&mutex);
+            print_packet("[Server] Received:", buf);
+        }
+    }
+    close(sock);
+    return NULL;
+}
+
+void* check_thread(void* arg) {
+    while(1) {
+        sleep(1);  // 每秒检查一次
+        pthread_mutex_lock(&mutex);
+        time_t now = time(NULL);
+
+        if (now - last_recv_time > TIMEOUT) {
+            heartbeat_data[2] = 0x00;
+            printf("[Server] Timeout!\n");
+        }
+        pthread_mutex_unlock(&mutex);
     }
     return NULL;
 }
 
 int udp_heartbeat_server() {
-    struct sockaddr_in send_addr, recv_addr;
-    pthread_t tid;
-    signal(SIGINT, handle_sigint);
+    pthread_t t1, t2, t3;
+    last_recv_time = time(NULL);  // 初始化时间戳
 
-    log_fp = fopen(LOG_FILE, "a");
-    if (!log_fp) {
-        perror("Failed to open log file");
-        exit(1);
-    }
+    pthread_create(&t1, NULL, send_thread, NULL);
+    pthread_create(&t2, NULL, recv_thread, NULL);
+    pthread_create(&t3, NULL, check_thread, NULL);
 
-    sock_send = socket(AF_INET, SOCK_DGRAM, 0);
-    memset(&send_addr, 0, sizeof(send_addr));
-    send_addr.sin_family = AF_INET;
-    send_addr.sin_port = htons(UDP_CLIENT_PORT);
-    send_addr.sin_addr.s_addr=inet_addr(CLIENT_IP);
-    bind(sock_send, (struct sockaddr *)&send_addr, sizeof(send_addr));
-
-    sock_recv = socket(AF_INET, SOCK_DGRAM, 0);
-    memset(&recv_addr, 0, sizeof(recv_addr));
-    recv_addr.sin_family = AF_INET;
-    recv_addr.sin_port = htons(UDP_SERVER_PORT);
-    recv_addr.sin_addr.s_addr=inet_addr(SERVER_IP);
-    bind(sock_recv, (struct sockaddr *)&recv_addr, sizeof(recv_addr));
-
-    last_recv_time = time(NULL);
-    pthread_create(&tid, NULL, send_heartbeat, NULL);
-   // pthread_detach(tid);
-    
-    unsigned char buf[BUF_SIZE];
-    while (running) {
-        fd_set readfds;
-        FD_ZERO(&readfds);
-        FD_SET(sock_recv, &readfds);
-        struct timeval tv = {1, 0};
-
-        int ret = select(sock_recv + 1, &readfds, NULL, NULL, &tv);
-        if (ret > 0 && FD_ISSET(sock_recv, &readfds)) {
-            recvfrom(sock_recv, buf, BUF_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len);
-	    printf("[Server] Received: ");
-            for (int i = 0; i < BUF_SIZE; i++) printf("%02X ", buf[i]);
-            printf("\n");
-	    log_msg("[Server] Received from client: %02X %02X %02X %02X %02X %02X %02X %02X",
-                buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
-	    heartbeat[2] = 0x01;
-            last_recv_time = time(NULL);
-        }
-    }
-
-    fclose(log_fp);
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+    pthread_join(t3, NULL);
     return 0;
 }
 
 //************************UDP heartbeat server******************************//
+
 
 /*TCP server */
 //#define SERVER_IP "192.168.2.98"
