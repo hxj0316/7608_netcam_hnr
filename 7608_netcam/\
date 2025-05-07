@@ -1094,8 +1094,8 @@ static td_s32 sample_ive_md_pause(td_void)
 
 //************************UDP heartbeat server******************************//
 
-#define SEND_PORT 1789
-#define RECV_PORT 1790
+#define SEND_PORT 1778
+#define RECV_PORT 1779
 #define CLIENT_IP "192.168.2.103"
 #define PACKET_SIZE 8
 #define TIMEOUT 5  // 超时时间（秒）
@@ -1128,7 +1128,7 @@ void* send_thread(void* arg) {
     struct sockaddr_in server_addr = {
         .sin_family = AF_INET,
         .sin_port = htons(SEND_PORT),
-        .sin_addr.s_addr = inet_addr("192.168.2.66")
+        .sin_addr.s_addr = inet_addr("192.168.2.99")
     };
     bind(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
 
@@ -1158,7 +1158,7 @@ void* recv_thread(void* arg) {
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
         .sin_port = htons(RECV_PORT),
-        .sin_addr.s_addr = inet_addr("192.168.2.66")
+        .sin_addr.s_addr = inet_addr("192.168.2.99")
     };
     bind(sock, (struct sockaddr*)&addr, sizeof(addr));
 
@@ -1423,7 +1423,7 @@ void *tcp_server_tmp(){
                printf("\n");
                 //判断数组起始字符
 	OCRCommand parsed = parse_ocr_command(buffer);
-    	handle_ocr_command(&parsed);
+    	print_ocr_command(&parsed);
                // if (buffer[0] == 0xef) {
                //     //判断数组第二位
                //     if (buffer[1] == 0x01) {
