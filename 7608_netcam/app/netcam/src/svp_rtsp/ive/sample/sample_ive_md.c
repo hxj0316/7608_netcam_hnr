@@ -3,7 +3,7 @@
  */
 #include "sample_common_ive.h"
 #include "ot_ivs_md.h"
-
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1056,151 +1056,6 @@ static td_s32 sample_ive_md_pause(td_void)
     return TD_FALSE;
 }
 
-//************************TCP heartbeat server******************************//
-/*
-#define HEARTBEAT_INTERVAL 1
-#define HEARTBEAT_TIMEOUT 5
-//#define PORT_5477 5477
-#define PORT_5277 5277
-#define PORT_5377 5377
-#define HEARTBEAT_SIZE 8
-#define BUFFER_SIZE 1024
-
-// 全局变量
-int client_socket_5277 = -1;
-int client_socket_5377 = -1;
-time_t last_heartbeat_time;
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-unsigned char heartbeat[HEARTBEAT_SIZE] = {0xBF, 0xFF, 0, 0, 0, 0, 0xFF, 0xFB};
-int heartbeat_running = 0;
-//
-//int uart_mcu_send;
-//
-//void send_file(int socket, const char *filename) {
-//    FILE *file = fopen(filename, "rb");
-//    if (file == NULL) {
-//        perror("Failed to open file");
-//        return;
-//    }
-//
-//    char buffer[BUFFER_SIZE];
-//    size_t bytes_read;
-//    char *msg =" \0";
-//    // 读取文件并通过socket发送
-//    while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
-//        if (send(socket, buffer, bytes_read, 0) < 0) {
-//            perror("Failed to send file");
-//            break;
-//        }
-//    }
-//    send(socket,msg,strlen(msg),0);
-//    fclose(file);
-//    printf("File sent successfully.\n");
-//}
-//
-//
-// 发送心跳线程
-void* send_heartbeat(void* arg) {
-    while (heartbeat_running) {
-        pthread_mutex_lock(&lock);
-        if (client_socket_5277 != -1) {
-            if (send(client_socket_5277, heartbeat, HEARTBEAT_SIZE, 0) <= 0) {
-                perror("Send heartbeat failed");
-                close(client_socket_5277);
-                client_socket_5277 = -1;
-            } else {
-                printf("[Send] Heartbeat sent\n");
-            }
-        }
-        pthread_mutex_unlock(&lock);
-        sleep(HEARTBEAT_INTERVAL);
-    }
-    return NULL;
-}
-
-// 接收心跳线程
-void* receive_heartbeat(void* arg) {
-   unsigned char buffer[HEARTBEAT_SIZE];
-   struct timeval timeout = {1, 0}; // 1秒超时
-   time_t current_time;
-
-   while (heartbeat_running) {
-       pthread_mutex_lock(&lock);
-       if (client_socket_5377 != -1) {
-           setsockopt(client_socket_5377, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-           int bytes = recv(client_socket_5377, buffer, HEARTBEAT_SIZE, 0);
-
-           if (bytes == HEARTBEAT_SIZE && memcmp(buffer, heartbeat, HEARTBEAT_SIZE) == 0) {
-               last_heartbeat_time = time(NULL); // 更新最近收到心跳包的时间
-               printf("[Recv] Heartbeat received\n");
-           } else {
-               current_time = time(NULL);
-               if (difftime(current_time, last_heartbeat_time) >= HEARTBEAT_TIMEOUT) {
-                   printf("[Warning] Heartbeat timeout! Closing connections...\n");
-
-                   // 关闭两个 socket
-                   close(client_socket_5277);
-                   close(client_socket_5377);
-                   client_socket_5277 = -1;
-                   client_socket_5377 = -1;
-
-                   // 停止心跳线程
-                   heartbeat_running = 0;
-                   pthread_mutex_unlock(&lock);
-                   break; // 退出线程
-               }
-           }
-       }
-       pthread_mutex_unlock(&lock);
-       sleep(1);
-   }
-   return NULL;
-}
-
-// 监听 5277 端口
-void* listen_5277(void* arg) {
-   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-   struct sockaddr_in addr = {AF_INET, htons(PORT_5277), INADDR_ANY};
-   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
-   bind(server_fd, (struct sockaddr*)&addr, sizeof(addr));
-   listen(server_fd, 5);
-
-   while (heartbeat_running) {
-       int client_fd = accept(server_fd, NULL, NULL);
-       pthread_mutex_lock(&lock);
-       if (client_socket_5277 != -1) close(client_socket_5277);
-       client_socket_5277 = client_fd;
-       pthread_mutex_unlock(&lock);
-       printf("Send heartbeat connection established\n");
-   }
-   close(server_fd);
-   return NULL;
-}
-
-// 监听 5377 端口
-void* listen_5377(void* arg) {
-   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-   struct sockaddr_in addr = {AF_INET, htons(PORT_5377), INADDR_ANY};
-   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
-   bind(server_fd, (struct sockaddr*)&addr, sizeof(addr));
-   listen(server_fd, 5);
-
-   while (heartbeat_running) {
-       int client_fd = accept(server_fd, NULL, NULL);
-       pthread_mutex_lock(&lock);
-       if (client_socket_5377 != -1) close(client_socket_5377);
-       client_socket_5377 = client_fd;
-       pthread_mutex_unlock(&lock);
-       printf("Receive heartbeat connection established\n");
-   }
-   close(server_fd);
-   return NULL;
-}
-*/
-//************************TCP heartbeat server******************************//
-
-
-
 //************************UDP heartbeat server******************************//
 
 #define SEND_PORT 1778
@@ -1255,7 +1110,7 @@ void* send_thread(void* arg) {
 
         sendto(sock, packet, PACKET_SIZE, 0,
               (struct sockaddr*)&client_addr, sizeof(client_addr));
-        print_packet("[Server] Sent:", packet);
+     // print_packet("[Server] Sent:", packet);
         sleep(1);
     }
     close(sock);
@@ -1284,7 +1139,7 @@ void* recv_thread(void* arg) {
             heartbeat_data[2] = 0x01;
             last_recv_time = time(NULL);  // 更新最后接收时间
             pthread_mutex_unlock(&mutex);
-            print_packet("[Server] Received:", buf);
+        //  print_packet("[Server] Received:", buf);
         }
     }
     close(sock);
@@ -1299,7 +1154,7 @@ void* check_thread(void* arg) {
         
         if (now - last_recv_time > TIMEOUT) {
             heartbeat_data[2] = 0x00;
-            printf("[Server] Timeout!\n");
+      //      printf("[Server] Timeout!\n");
         }
         pthread_mutex_unlock(&mutex);
     }
@@ -1313,10 +1168,10 @@ int udp_heartbeat_server() {
     pthread_create(&t1, NULL, send_thread, NULL);
     pthread_create(&t2, NULL, recv_thread, NULL);
     pthread_create(&t3, NULL, check_thread, NULL);
-    
-    pthread_join(t1, NULL);
-    pthread_join(t2, NULL);
-    pthread_join(t3, NULL);
+   
+    pthread_detach(t1);
+    pthread_detach(t2);
+    pthread_detach(t3);
     return 0;
 }
 
@@ -1326,9 +1181,10 @@ int udp_heartbeat_server() {
 /*TCP server */
 //#define SERVER_IP "192.168.2.99"
 #define SERVER_PORT 5477
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 16
 int uart_mcu_send;
 
+//int server_fd, new_socket;
 void send_file(int socket, const char *filename) {
     FILE *file = fopen(filename, "rb");
     if (file == NULL) {
@@ -1351,34 +1207,6 @@ void send_file(int socket, const char *filename) {
     printf("File sent successfully.\n");
 }
 
-
-void handle_main_control(unsigned char *buffer, int socket_fd) {
-    if (buffer[1] == 0x01) {
-        sample_ivs_md_proc(&g_md_info);
-        printf("RGB_file sending\n");
-        send_file(socket_fd, "/sharefs/RGB_test.bgr");
-    }
-
-    switch (buffer[2]) {
-        case 0x01: uart_mcu_send = 0x01; printf("focus start!\n"); break;
-        case 0x00: uart_mcu_send = 0x00; printf("focus stop!\n"); break;
-        case 0x02: uart_mcu_send = 0x02; break;
-        case 0x03: uart_mcu_send = 0x03; break;
-    }
-
-    switch (buffer[3]) {
-        case 0x01: pelco_set_zoom_tele(); printf("zoom tele!\n"); break;
-        case 0x02: pelco_set_zoom_wide(); printf("zoom wide!\n"); break;
-        default:   pelco_set_stop(); printf("zoom stop!\n"); break;
-    }
-
-    switch (buffer[4]) {
-        case 0x01: pelco_set_focus_near(); printf("focus_near!\n"); break;
-        case 0x02: pelco_set_focus_far();  printf("focus_far!\n");  break;
-        default:   pelco_set_stop();       printf("focus_manual stop!\n"); break;
-    }
-}
-
 void handle_ircut_control(unsigned char *buffer) {
     if (buffer[1] == 0x01) {
         ircut_on();
@@ -1387,105 +1215,225 @@ void handle_ircut_control(unsigned char *buffer) {
     }
 }
 
-//void handle_heartbeat(unsigned char *buffer){
-//    if(buffer[2] == 0x01 && heartbeat_running == 0)
-//    {
-//        heartbeat_running = 1;
-//	init_heartbeat_ports();
-//        printf("Starting heartbeat service\n");
-//    }
-//    else if(buffer[2] == 0x01 && heartbeat_running == 1)
-//    {
-//        printf("Heartbeat service already started!\n");
-//    }
-//    else
-//    {
-//        heartbeat_running = 0;
-//        printf("Heartbeat service closed!\n");
-//    }
-//
-//}
+void handle_snap(int socket_fd){
 
-void handle_snap(unsigned char *buffer,int socket_fd){
-    if(buffer[2] == 0x01)
-    {
         sample_ivs_md_proc(&g_md_info);
         printf("Starting snap!!!\n");
         printf("RGB_file sending\n");
         send_file(socket_fd, "/sharefs/RGB_test.bgr");
-    }
-    return;
 }
 
-//void init_heartbeat_ports() {
-//    last_heartbeat_time = time(NULL); // 初始化心跳时间
-//    pthread_t send_thread, recv_thread, listen5277, listen5377;
-//    pthread_create(&send_thread, NULL, send_heartbeat, NULL);
-//    pthread_create(&recv_thread, NULL, receive_heartbeat, NULL);
-//    pthread_create(&listen5277, NULL, listen_5277, NULL);
-//    pthread_create(&listen5377, NULL, listen_5377, NULL);
-//}
+//*****************//
+// 形码检测类型位
+#define DETECT_QRCODE   (1 << 0)
+#define DETECT_BARCODE  (1 << 1)
+#define DETECT_TEXT     (1 << 2)
 
-void handle_lens_control(unsigned char *buffer) {
-    // 保护性检查：防止 buffer 长度不足
-    if (buffer == NULL) {
-        printf("Error: NULL buffer\n");
+// IPC 动作类型
+typedef enum {
+    IPC_ACTION_NONE = 0x00,
+    IPC_ACTION_SNAPSHOT = 0x01,
+    IPC_ACTION_CALIBRATE = 0x02,
+    IPC_ACTION_FINETUNE = 0x04
+} IPCAction;
+
+// 放大/缩小方向
+typedef enum {
+    ZOOM_NONE = 0x00,
+    ZOOM_IN   = 0x01,
+    ZOOM_OUT  = 0x02
+} ZoomDirection;
+
+// 放大/缩小方向
+typedef enum {
+    FOCUS_NONE = 0x00,
+    FOCUS_IN   = 0x01,
+    FOCUS_OUT  = 0x02
+} FocusDirection;
+
+// 抓图指令解析结构
+typedef struct {
+    bool valid;
+
+    uint8_t detect_type;
+    bool detect_qrcode;
+    bool detect_barcode;
+    bool detect_text;
+
+    IPCAction action;
+
+    ZoomDirection zoom_dir;
+    uint32_t zoom_factor;
+
+    FocusDirection focus_dir;
+    uint32_t focus_factor;
+} OCRCommand;
+
+// 辅助函数：从高字节序4字节转uint32_t
+uint32_t parse_uint32_be(uint8_t* bytes) {
+    return ((uint32_t)bytes[0] << 24) |
+           ((uint32_t)bytes[1] << 16) |
+           ((uint32_t)bytes[2] << 8) |
+           (uint32_t)bytes[3];
+}
+
+// 主解析函数
+OCRCommand parse_ocr_command(const uint8_t cmd[16]) {
+    OCRCommand result = {0};
+
+    // 校验头尾
+    if (cmd[0] != 0xcf || cmd[1] != 0xff || cmd[14] != 0xff || cmd[15] != 0xfc) {
+        result.valid = false;
+        return result;
+    }
+
+    result.valid = true;
+
+    // 检测类型
+    result.detect_type = cmd[2];
+    result.detect_qrcode  = (cmd[2] & DETECT_QRCODE) != 0;
+    result.detect_barcode = (cmd[2] & DETECT_BARCODE) != 0;
+    result.detect_text    = (cmd[2] & DETECT_TEXT) != 0;
+
+    // IPC动作
+    result.action = (IPCAction)cmd[3];
+
+    // 变倍
+    result.zoom_dir = (ZoomDirection)cmd[4];
+    result.zoom_factor = parse_uint32_be(&cmd[5]);
+
+    // 变焦
+    result.focus_dir = (FocusDirection)cmd[9];
+    result.focus_factor = parse_uint32_be(&cmd[10]);
+
+    return result;
+}
+
+// 示例调用
+void print_ocr_command(const OCRCommand* cmd) {
+    if (!cmd->valid) {
+        printf("无效指令！校验失败。\n");
         return;
     }
 
-    // 提取 delay（3字节，大端）
-    int zoom_delay = (buffer[4] << 16) | (buffer[5] << 8) | buffer[6];
-    int focus_delay = (buffer[8] << 16) | (buffer[9] << 8) | buffer[10];                                                                                   // 如果 delay 是以毫秒传递过来，可改为 delay *= 1000;
-   printf("zoom_delay is : %d us",zoom_delay);
-   printf("focus_delay is : %d us",focus_delay);
+    printf("检测类型：\n");
+    if (cmd->detect_qrcode)  printf("  - 二维码\n");
+    if (cmd->detect_barcode) printf("  - 一维码\n");
+    if (cmd->detect_text)    printf("  - 字符\n");
 
-    // buffer[3]：zoom方向选择（0x01：wide，0x02：tele）
-    switch (buffer[3]) {
-        case 0x01:  
+    printf("IPC动作：");
+    switch (cmd->action) {
+        case IPC_ACTION_NONE: printf("无操作\n"); break;
+        case IPC_ACTION_SNAPSHOT: printf("抓拍图像\n"); break;
+        case IPC_ACTION_CALIBRATE: printf("对焦标定\n"); break;
+    }
+
+    printf("变倍方向：%d，系数：%u\n", cmd->zoom_dir, cmd->zoom_factor);
+    printf("变焦方向：%d，系数：%u\n", cmd->focus_dir, cmd->focus_factor);
+}
+
+//封装变倍和变焦函数
+void handle_zoom_action(ZoomDirection zoom_dir, uint32_t zoom_factor) {
+	 printf("变倍方向：%d，系数：%u\n", zoom_dir,zoom_factor);
+	switch (zoom_dir) {
+        case ZOOM_IN:
             zoom_test_1();
-            usleep(zoom_delay);
-            zoom_test_stop();
-            printf("Zoom wide done.\n"); 
+            usleep(zoom_factor);  // 延迟 zoom_factor 微秒
+	    zoom_test_stop();
+	    printf("zoom in!!!\n");
             break;
-        case 0x02: 
+
+        case ZOOM_OUT:
             zoom_test_2();
-            usleep(zoom_delay);
-            zoom_test_stop();
-            printf("Zoom tele done.\n");break;
-        default: printf("Unknown direction: 0x%02X\n", buffer[3]); break;
-    }
-     sleep(3);
-// buffer[3]：focus方向选择（0x01：near，0x02：far）    
-    switch (buffer[7]) {
-        case 0x01:  
-            focus_test_1();
-            usleep(focus_delay);
-            focus_test_stop();
-            printf("Focus near done.\n");
+            usleep(zoom_factor);  // 延迟 zoom_factor 微秒
+	    zoom_test_stop();
+	    printf("zoom out!!!\n");
             break;
-        case 0x02: 
+
+        default:
+            // 无动作
+            break;
+    }
+}
+
+void handle_focus_action(FocusDirection focus_dir, uint32_t focus_factor) {
+	    printf("变焦方向：%d，系数：%u\n", focus_dir, focus_factor);
+	switch (focus_dir) {
+        case FOCUS_IN:
+            focus_test_1();
+            usleep(focus_factor);  // 延迟 focus_factor 微秒
+	    focus_test_stop();
+	    printf("focus in!!!\n");
+            break;
+
+        case FOCUS_OUT:
             focus_test_2();
-            usleep(focus_delay);
-            focus_test_stop();
-            printf("Focus far done.\n");
-        default: printf("Unknown direction: 0x%02X\n", buffer[7]); break;
+            usleep(focus_factor);  // 延迟 focus_factor 微秒
+	    focus_test_stop();
+	    printf("focus out!!!\n");
+            break;
+
+        default:
+            // 无动作
+            break;
+    }
+}
+//封装OCR镜头复位函数
+void handle_ocr_reset()
+{
+  zoom_test_1();
+  usleep(1591680);
+  zoom_test_stop();
+  sleep(2);
+  focus_test_1();
+  usleep(462608);
+  focus_test_stop();
+  sleep(1);
+
+}
+
+// 指令解析及调用
+void handle_ocr_command(int socket_fd, const OCRCommand* cmd) {
+    if (!cmd->valid) {
+        printf("无效指令！校验失败。\n");
+        return;
     }
 
+    printf("检测类型：\n");
+    if (cmd->detect_qrcode)  printf("  - 二维码\n");
+    if (cmd->detect_barcode) printf("  - 一维码\n");
+    if (cmd->detect_text)    printf("  - 字符\n");
+
+    printf("IPC动作：");
+    switch (cmd->action) {
+        case IPC_ACTION_NONE: printf("无操作\n"); break;
+        case IPC_ACTION_SNAPSHOT: 
+		printf("抓拍图像\n");
+		handle_snap(socket_fd);
+	       	break;
+        case IPC_ACTION_CALIBRATE: 
+		printf("对焦标定\n");
+		//复位到原点
+		handle_ocr_reset();
+		// 执行变倍与变焦动作
+            	handle_zoom_action(cmd->zoom_dir, cmd->zoom_factor);
+		sleep(2);
+            	handle_focus_action(cmd->focus_dir, cmd->focus_factor);
+		sleep(1);
+		handle_snap(socket_fd);
+		break;
+	case IPC_ACTION_FINETUNE:
+		printf("对焦微调\n");
+		handle_zoom_action(cmd->zoom_dir, cmd->zoom_factor);
+                sleep(2);
+                handle_focus_action(cmd->focus_dir, cmd->focus_factor);
+                sleep(1);
+                handle_snap(socket_fd);
+                break;
+    }
 }
 
-void zoom_control_plus(unsigned char *buffer) {
-
-        zoom_test_1();
-        usleep(17792);
-        zoom_test_stop();
-}
-
-void zoom_control_reduce(unsigned char *buffer) {
-    
-        zoom_test_2();
-        usleep(11792);
-        zoom_test_stop();
-}
+//*****************//
 
 void *tcp_server_tmp(){
     int server_fd, new_socket;
@@ -1551,26 +1499,8 @@ while (1) {
 
     if (bytes_received < 1) continue;
 
-    switch (buffer[0]) {
-        case 0xEF:
-            handle_main_control(buffer, new_socket);
-            break;
-        case 0xAF:
-            handle_ircut_control(buffer);
-            break;
-        case 0xCF: 
-//	    handle_heartbeat(buffer);	    
-            handle_lens_control(buffer);
-//          pthread_mutex_lock(&lock);
-//    	    heartbeat[2] = 0x01;
-//    	    pthread_mutex_unlock(&lock);
-            printf("镜头已到指定位置！\n");
-            handle_snap(buffer,new_socket);
-	        break;
-        default:
-            printf("Unknown command: 0x%02x\n", buffer[0]);
-            break;
-	    }
+     OCRCommand parsed = parse_ocr_command(buffer);
+     handle_ocr_command(new_socket,&parsed);
 	}
     }
 
@@ -1578,119 +1508,6 @@ while (1) {
     close(server_fd);
 }
 
-//        while (1) {
-//            ssize_t bytes_received = recv(new_socket, buffer, BUFFER_SIZE, 0);
-//
-//            if (bytes_received == 0) {
-//                printf("Client disconnected\n");
-//                close(new_socket);
-//                break;
-//            } else if (bytes_received < 0) {
-//                perror("Receive failed");
-//                close(new_socket);
-//                break;
-//            } else if (bytes_received > 0) {
-//                printf("Received %d bytes.\n", bytes_received);
-//	      for (int i = 0; i < bytes_received; i++) {
-//                printf("%02x ", (unsigned char)buffer[i]); // 打印为十六进制格式
-//            }
-//               printf("\n");
-//                //判断数组起始字符
-//                if (buffer[0] == 0xef) {
-//                    //判断数组第二位
-//                    if (buffer[1] == 0x01) {
-//                        sample_ivs_md_proc(&g_md_info);//启动原图抓拍和yuv2rgb、rgb图像保存
-//                        printf("RGB_file sending\n");
-//                        // 发送文件RGB_test.bgr给客户端
-//                        send_file(new_socket, "/sharefs/RGB_test.bgr");
-//                    }
-//                    //判断数组第三位（是否开启自动对焦）
-//                    if (buffer[2] == 0x01) {
-//                        uart_mcu_send = 0x01;
-//                        printf("focus start!\n");
-//                    } else if (buffer[2] == 0x00) {
-//                        uart_mcu_send = 0x00;
-//                        printf("focus stop!\n");
-//                    }
-//		    else if (buffer[2] == 0x02) {
-//                        uart_mcu_send = 0x02;
-//                    }
-//		   else if (buffer[2] == 0x03) {
-//                        uart_mcu_send = 0x03;
-//                    }
-//
-//                    //判断数组第四位（进行变倍操作）
-//                    if (buffer[3] == 0x01) {
-//                        pelco_set_zoom_tele();
-//                        printf("zoom tele!\n");
-//                    } else if (buffer[3] == 0x02) {
-//                        pelco_set_zoom_wide();
-//                        printf("zoom wide!\n");
-//                    }
-//		    else {
-//                        pelco_set_stop();
-//		        printf("zoom stop!\n");
-//                    }
-//	            //判断数组第五位（手动微调变焦） 
-//                   if (buffer[4] == 0x01) {
-//                        pelco_set_focus_near();
-//                        printf("focus_near!\n");
-//                    }
-//                     else if (buffer[4] == 0x02) {
-//                        pelco_set_focus_far();
-//                        printf("focus_far!\n");
-//                  }
-//                    else {
-//                       pelco_set_stop();
-//                       printf("focus_manual stop!\n");
-//                    }
-//
-//                }
-//                else if(buffer[0] == 0xAF){
-//                  //起始字符为AF 进行IRCUT操作
-//                  if (buffer[1] == 0x01){
-//                       ircut_on();
-//                  }
-//                  else if (buffer[1] == 0x00){
-//                       ircut_off();
-//                  }
-//               }
-//
-//                if (buffer[0] == 0xDF) {
-//		        int zoom_seconds = (buffer[2] << 16) | (buffer[3] << 8) | buffer[4]; // 组合buffer[2]和buffer[3]
-//			 printf("zoom delay: %d  ms\n", zoom_seconds);
-//                    if (buffer[1] == 0x01) {
-//		       zoom_test_1();
-//                       usleep(zoom_seconds);
-//                        zoom_test_stop();
-//                    } else if (buffer[1] == 0x02) {
-//                        zoom_test_2();
-//			usleep(zoom_seconds);
-//                        zoom_test_stop();
-//                    }
-//                }
-//		if (buffer[0] == 0x3F) {
-//                        int focus_seconds = (buffer[2] << 16) | (buffer[3] <<8) | buffer[4]; // 组合buffer[2]和buffer[3]
-//                         printf("focus delay: %d  us\n", focus_seconds);
-//                    if (buffer[1] == 0x01) {
-//                       focus_test_1();
-//                       usleep(focus_seconds);
-//                        focus_test_stop();
-//                    } else if (buffer[1] == 0x02) {
-//                        focus_test_2();
-//                        usleep(focus_seconds);
-//                        focus_test_stop();
-//                    }
-//                }
-//
-//
-//            }
-//        }
-//    }
-
-    // 关闭服务器
-//    close(server_fd);
-//}
 
 td_void sample_ive_md(td_void)
 {
