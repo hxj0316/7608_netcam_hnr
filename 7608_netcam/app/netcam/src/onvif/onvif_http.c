@@ -50,7 +50,7 @@ int netcam_http_onvif_init(void)
   //  pthread_t rx_tty;
   //  pthread_create(&rx_tty, 0, rx_receive, NULL);
 
-      sdk_af_lens_init(NULL);
+      //sdk_af_lens_init(NULL);
 
     //sleep(1);
     //sprintf(rtsp_url, "rtsp://%s:554/stream0", g_GkIpc_OnvifInf.discov.hostip);

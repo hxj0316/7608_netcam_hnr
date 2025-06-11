@@ -1332,20 +1332,36 @@ void print_ocr_command(const OCRCommand* cmd) {
     printf("变焦方向：%d，系数：%u\n", cmd->focus_dir, cmd->focus_factor);
 }
 
+// 毫秒级 sleep 函数
+void sleep_ms(int milliseconds) {
+    struct timespec ts;
+
+    // 秒部分
+    ts.tv_sec = milliseconds / 1000;
+
+    // 纳秒部分
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+
+    // 调用 nanosleep
+    nanosleep(&ts, NULL);
+}
+
 //封装变倍和变焦函数
 void handle_zoom_action(ZoomDirection zoom_dir, uint32_t zoom_factor) {
 	 printf("变倍方向：%d，系数：%u\n", zoom_dir,zoom_factor);
 	switch (zoom_dir) {
         case ZOOM_IN:
             zoom_test_1();
-            usleep(zoom_factor);  // 延迟 zoom_factor 微秒
+         // usleep(zoom_factor);  // 延迟 zoom_factor 微秒
+	    sleep_ms(zoom_factor);
 	    zoom_test_stop();
 	    printf("zoom in!!!\n");
             break;
 
         case ZOOM_OUT:
             zoom_test_2();
-            usleep(zoom_factor);  // 延迟 zoom_factor 微秒
+         // usleep(zoom_factor);  // 延迟 zoom_factor 微秒
+	    sleep_ms(zoom_factor);
 	    zoom_test_stop();
 	    printf("zoom out!!!\n");
             break;
@@ -1361,14 +1377,16 @@ void handle_focus_action(FocusDirection focus_dir, uint32_t focus_factor) {
 	switch (focus_dir) {
         case FOCUS_IN:
             focus_test_1();
-            usleep(focus_factor);  // 延迟 focus_factor 微秒
+           // usleep(focus_factor);  // 延迟 focus_factor 微秒
+	   sleep_ms(focus_factor);
 	    focus_test_stop();
 	    printf("focus in!!!\n");
             break;
 
         case FOCUS_OUT:
             focus_test_2();
-            usleep(focus_factor);  // 延迟 focus_factor 微秒
+          //  usleep(focus_factor);  // 延迟 focus_factor 微秒
+	    sleep_ms(focus_factor);
 	    focus_test_stop();
 	    printf("focus out!!!\n");
             break;
@@ -1381,12 +1399,14 @@ void handle_focus_action(FocusDirection focus_dir, uint32_t focus_factor) {
 //封装OCR镜头复位函数
 void handle_ocr_reset()
 {
-  zoom_test_1();
-  usleep(1591680);
+  zoom_test_2();
+//  usleep(1591680);
+  sleep_ms(16000);
   zoom_test_stop();
   sleep(2);
-  focus_test_1();
-  usleep(462608);
+  focus_test_2();
+//  usleep(462608);
+  sleep_ms(4000);
   focus_test_stop();
   sleep(1);
 
@@ -1433,6 +1453,60 @@ void handle_ocr_command(int socket_fd, const OCRCommand* cmd) {
     }
 }
 
+void handle_command_ef(int socket_fd, const unsigned char *buffer) {
+    if (buffer[1] == 0x01) {
+        sample_ivs_md_proc(&g_md_info);
+        printf("RGB_file sending\n");
+        send_file(socket_fd, "/sharefs/RGB_test.bgr");
+    }
+
+    // 对焦控制
+    if (buffer[2] == 0x01) {
+        sdk_af_lens_init(NULL);
+        uart_mcu_send = 0x01;
+        printf("focus start!\n");
+    } else if (buffer[2] == 0x00) {
+        sdk_af_lens_exit();
+        uart_mcu_send = 0x00;
+        printf("focus stop!\n");
+    }
+
+}
+
+void handle_command_df(int socket_fd, const unsigned char *buffer)
+{
+    // 变倍控制
+    switch (buffer[1]) {
+        case 0x01:
+            zoom_test_1();
+            printf("zoom in!\n");
+            break;
+        case 0x02:
+            zoom_test_2();
+            printf("zoom out!\n");
+            break;
+        default:
+            zoom_test_stop();
+            printf("zoom stop!\n");
+            break;
+    }
+   sleep_ms(20);
+    // 微调对焦
+    switch (buffer[2]) {
+        case 0x01:
+            focus_test_1();
+            sleep_ms(24);
+            focus_test_stop();
+            printf("focus +\n");
+            break;
+        case 0x02:
+            focus_test_2();
+            sleep_ms(24);
+            focus_test_stop();
+            printf("focus -\n");
+            break;
+    }
+}
 //*****************//
 
 void *tcp_server_tmp(){
@@ -1466,7 +1540,7 @@ void *tcp_server_tmp(){
     }
 
     printf("Server listening on %s:%d\n", INADDR_ANY, SERVER_PORT);
-   
+
 while (1) {
         // 接受客户端连接
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
@@ -1498,16 +1572,29 @@ while (1) {
     printf("\n");
 
     if (bytes_received < 1) continue;
-
-     OCRCommand parsed = parse_ocr_command(buffer);
-     handle_ocr_command(new_socket,&parsed);
-	}
+               switch (buffer[0]) {
+                case 0xef:
+                    handle_command_ef(new_socket, buffer);
+                    break;
+                case 0xcf:
+                    {
+                        OCRCommand parsed = parse_ocr_command(buffer);
+                        handle_ocr_command(new_socket, &parsed);
+			break;
+                    }
+		case 0xdf:
+		    handle_command_df(new_socket, buffer);
+                    break;
+                default:
+                    printf("Unknown command: 0x%02x\n", buffer[0]);
+                    break;     
+  	 }
+      }
     }
 
     // 关闭服务器
     close(server_fd);
 }
-
 
 td_void sample_ive_md(td_void)
 {
