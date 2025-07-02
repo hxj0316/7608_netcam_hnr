@@ -22,6 +22,7 @@
 #define FEINFO
 
 extern int uart;
+td_u32 g_fv1 = 0;
 static int af_weight[15][17] = {
    	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1},
@@ -60,7 +61,7 @@ static GK_BOOL g_afStopSignal = GK_FALSE;
 static pthread_t g_afThread = 0;
 static volatile int g_afRunning = 0;
 
-static void *af_calc(void *arg)
+void *af_calc(void *arg)
 {
     td_s32 ret = TD_SUCCESS;
     td_u8 wdr_chn;
@@ -141,10 +142,11 @@ static void *af_calc(void *arg)
         }
         fv1 = sum_fv1 / wgt_sum;
         fv2 = sum_fv2 / wgt_sum;
+	g_fv1 = fv1;
 //	printf("fv is :%d\n",fv1 );
         GK_U8 agc = 255 * (stIspExpInfo.a_gain - pstExpAttr.auto_attr.a_gain_range.min) / (pstExpAttr.auto_attr.a_gain_range.max - pstExpAttr.auto_attr.a_gain_range.min);
-        send_af_value(uart, fv1, fv2, agc,uart_mcu_send);
-        usleep(20 * 1000);
+       // send_af_value(uart, fv1, fv2, agc,uart_mcu_send);
+       // usleep(20 * 1000);
     }
     g_afRunning = 0;
     return NULL;

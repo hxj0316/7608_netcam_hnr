@@ -518,6 +518,19 @@ void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc,int uart
 #define FOCUS_TEST_2 0X02
 #define FOCUS_TEST_STOP 0X03
 
+#define FOCUS_AUTO_SYNC 0xEF
+#define FOCUS_AUTO_0 0x00
+#define FOCUS_AUTO_1 0x01
+#define FOCUS_AUTO_2 0X02
+#define FOCUS_AUTO_3 0X03
+#define FOCUS_AUTO_4 0x04
+#define FOCUS_AUTO_5 0X05
+#define FOCUS_AUTO_6 0X06
+#define FOCUS_AUTO_7 0x07
+#define FOCUS_AUTO_8 0X08
+#define FOCUS_AUTO_9 0X09
+#define FOCUS_AUTO_10 0X0A
+
 #define UP 0x08
 #define DOWN 0x10
 #define LEFT 0x04
@@ -531,6 +544,237 @@ void send_af_value(int uart_fd, GK_U16 focus1, GK_U16 focus2, GK_U8 agc,int uart
 #define SET_PRESET 0x03
 #define DEL_PRESET 0x05
 #define CALL_PRESET 0x07
+int32_t focus_auto_0()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_1()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_1;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_2()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_2;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_3()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_3;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_4()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_4;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_5()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_5;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_6()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_6;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_7()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_7;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_8()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_8;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_9()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_9;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
+int32_t focus_auto_10()
+{
+    unsigned char bytes[32];
+    uint32_t i, length = 0;
+    bytes[length] = FOCUS_AUTO_SYNC;
+    length++;
+    bytes[length] = FOCUS_AUTO_10;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[length] = 0;
+    length++;
+    bytes[6] = (bytes[1] + bytes[2] + bytes[3] + bytes[4] + bytes[5]) & 0xff;
+    length++;
+    do_transmit(uart, length, bytes);
+}
+
 int32_t focus_test_1()
 {
     unsigned char bytes[32];

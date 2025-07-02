@@ -1055,11 +1055,167 @@ static td_s32 sample_ive_md_pause(td_void)
     }
     return TD_FALSE;
 }
+//***自动对焦***//
+extern td_u32 g_fv1;
+int direction,change_time;
+int last_fv, current_fv, next_fv, max_fv_value;
+
+// 线程停止标志
+volatile int g_focusAutoStop = 0;
+// focus_auto 线程函数
+void *focus_auto_thread(void *arg)
+{
+    printf("[FocusAuto] Thread started.\n");
+
+    while (!g_focusAutoStop)
+    {
+	 printf("max_fv_value is:%d , g_fv1 is :%d\n",max_fv_value,g_fv1);   
+       float percent = (float)abs((int)(max_fv_value - g_fv1)) / max_fv_value * 100;
+	 printf("Percentage: %.2f%%\n", percent);
+        if (percent > 10.0f || g_fv1 < 1000)
+        {
+	    max_fv_value = 0;
+            fv_climb();
+        }
+        else
+        {
+            focus_auto_10();
+        }
+
+        usleep(10 * 1000); // 100ms 避免过度占用 CPU
+    }
+
+    printf("[FocusAuto] Thread stopped.\n");
+    return NULL;
+}
+
+pthread_t focus_thread;
+
+// 启动线程
+void start_focus_thread()
+{
+    g_focusAutoStop = 0;
+    if (pthread_create(&focus_thread, NULL, focus_auto_thread, NULL) != 0)
+    {
+        perror("Failed to create focus_auto_thread");
+    }
+}
+
+// 停止线程
+void stop_focus_thread()
+{
+    g_focusAutoStop = 1;
+    pthread_join(focus_thread, NULL);
+}
+
+void fv_climb(void)
+{
+    int step_index = 0;
+    int stable_count = 0;
+    int low_fv_count = 0;
+    int delay_time_ms = 75;
+
+    const int flat_threshold = 5;
+    const int flat_limit = 10;
+    const int low_fv_limit = 50;
+    const int max_stage = 8;
+
+    int max_fv_step_index = 0;
+
+    int last_fv = 0;
+    int current_fv = 0;
+    int next_fv = 0;
+
+    int direction_change_count = 0;
+
+    direction = 1;  // 初始方向
+
+    while (direction_change_count < max_stage) {
+
+        if (g_focusAutoStop) {
+            printf("[fv_climb] Received stop signal, exiting early.\n");
+            break;
+        }
+
+        if (step_index > 0 && (last_fv - next_fv) > 10) {
+            direction_change_count++;
+            if (direction_change_count > 1) {
+                focus_auto_1(); // 换向
+            }
+        }
+
+        // 连续低FV值处理
+        if (last_fv < 10 && next_fv < 10) {
+            low_fv_count++;
+            if (low_fv_count >= low_fv_limit) {
+                printf("[fv_climb] FV too low, exiting.\n");
+                break;
+            }
+        }
+
+        // FV稳定检测（滞后区检测）
+        if (step_index > 0 && abs(next_fv - last_fv) < flat_threshold) {
+            stable_count++;
+            printf("FV变化平稳，计数: %d（%d vs %d）\n", stable_count, next_fv, last_fv);
+
+            if (stable_count >= flat_limit) {
+                printf("[fv_climb] Detected plateau, reversing direction.\n");
+                focus_auto_1();
+		direction_change_count++;
+                sleep_ms(500);
+                stable_count = 0;
+            }
+        } else {
+            stable_count = 0;
+        }
+
+        // 控制焦点位置推进
+        switch (direction_change_count) {
+            case 0: focus_auto_2(); break;
+            case 1: focus_auto_3(); break;
+            case 2: focus_auto_4(); break;
+            case 3: focus_auto_5(); break;
+            case 4: focus_auto_6(); break;
+            case 5: focus_auto_7(); break;
+            case 6: focus_auto_8(); break;
+            case 7: focus_auto_9(); break;
+	    case 8: focus_auto_10(); break;
+        }
+
+        // 模拟步进间隔
+        sleep_ms(delay_time_ms);
+        // 更新FV值
+        next_fv = g_fv1;
+        last_fv = current_fv;
+        current_fv = next_fv;
+
+        // 记录最大FV和其步数
+        if (current_fv > max_fv_value) {
+            max_fv_value = current_fv;
+            max_fv_step_index = step_index;
+        }
+
+        printf("[fv_climb] step: %d, change_time: %d, FV: %d, maxFV: %d at step %d\n",
+               step_index, direction_change_count, current_fv, max_fv_value, max_fv_step_index);
+
+        step_index++;
+    }
+
+    //  自动对焦完成后的处理
+    printf("[fv_climb] Auto focus completed. Best FV: %d at step %d\n",
+           max_fv_value, max_fv_step_index);
+
+    // printf("[fv_climb] Auto focus finished.\n");
+}
+
+//**************//
+
+
 
 //************************UDP heartbeat server******************************//
 
-#define SEND_PORT 1778
-#define RECV_PORT 1779
+#define SEND_PORT 1789
+#define RECV_PORT 1790
 #define CLIENT_IP "192.168.2.103"
 #define PACKET_SIZE 8
 #define TIMEOUT 5  // 超时时间（秒）
@@ -1092,7 +1248,7 @@ void* send_thread(void* arg) {
     struct sockaddr_in server_addr = {
         .sin_family = AF_INET,
         .sin_port = htons(SEND_PORT),
-        .sin_addr.s_addr = inet_addr("192.168.2.99")
+        .sin_addr.s_addr = inet_addr("192.168.2.66")
     };
     bind(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
 
@@ -1122,7 +1278,7 @@ void* recv_thread(void* arg) {
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
         .sin_port = htons(RECV_PORT),
-        .sin_addr.s_addr = inet_addr("192.168.2.99")
+        .sin_addr.s_addr = inet_addr("192.168.2.66")
     };
     bind(sock, (struct sockaddr*)&addr, sizeof(addr));
 
@@ -1462,12 +1618,15 @@ void handle_command_ef(int socket_fd, const unsigned char *buffer) {
 
     // 对焦控制
     if (buffer[2] == 0x01) {
-        sdk_af_lens_init(NULL);
-        uart_mcu_send = 0x01;
+       sdk_af_lens_init(NULL);
+       // uart_mcu_send = 0x01;
         printf("focus start!\n");
+	start_focus_thread();
     } else if (buffer[2] == 0x00) {
         sdk_af_lens_exit();
-        uart_mcu_send = 0x00;
+       // uart_mcu_send = 0x00;
+       stop_focus_thread();
+        focus_auto_10();
         printf("focus stop!\n");
     }
 
