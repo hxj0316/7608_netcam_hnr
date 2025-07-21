@@ -1214,11 +1214,53 @@ void fv_climb(void)
 
 //************************UDP heartbeat server******************************//
 
-#define SEND_PORT 1789
-#define RECV_PORT 1790
-#define CLIENT_IP "192.168.2.103"
+//#define SEND_PORT 1789
+//#define RECV_PORT 1790
+//#define CLIENT_IP "192.168.2.103"
 #define PACKET_SIZE 8
-#define TIMEOUT 5  // 超时时间（秒）
+//#define TIMEOUT 5  // 超时时间（秒）
+
+// 添加全局变量（在 config.c 中定义，在 main 文件中 extern 声明也可）
+int SEND_PORT;
+int RECV_PORT;
+char CLIENT_IP[64];
+char SERVER_IP[64];
+int TIMEOUT;
+
+void trim(char* str) {
+    char *p = str;
+    int l = strlen(p);
+    while (l > 0 && (p[l - 1] == '\n' || p[l - 1] == '\r' || p[l - 1] == ' '))
+        p[--l] = 0;
+}
+
+void load_config(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (!file) {
+        perror("Failed to open config file");
+        return;
+    }
+
+    char line[128];
+    while (fgets(line, sizeof(line), file)) {
+        char key[64], value[64];
+        if (sscanf(line, "%[^=]=%s", key, value) == 2) {
+            trim(value);
+            if (strcmp(key, "SEND_PORT") == 0)
+                SEND_PORT = atoi(value);
+            else if (strcmp(key, "RECV_PORT") == 0)
+                RECV_PORT = atoi(value);
+            else if (strcmp(key, "CLIENT_IP") == 0)
+                strncpy(CLIENT_IP, value, sizeof(CLIENT_IP));
+            else if (strcmp(key, "SERVER_IP") == 0)
+                strncpy(SERVER_IP, value, sizeof(SERVER_IP));
+            else if (strcmp(key, "TIMEOUT") == 0)
+                TIMEOUT = atoi(value);
+        }
+    }
+
+    fclose(file);
+}
 
 unsigned char heartbeat_data[PACKET_SIZE] = {0xBF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFB};
 time_t last_recv_time;
@@ -1233,10 +1275,10 @@ void print_packet(const char* prefix, const unsigned char* data) {
 }
 
 int is_valid_packet(const unsigned char* buf, ssize_t len) {
-    return (len == PACKET_SIZE) && 
-           (buf[0] == 0xBF) && 
+    return (len == PACKET_SIZE) &&
+           (buf[0] == 0xBF) &&
            (buf[1] == 0xFF) &&
-           (buf[6] == 0xFF) && 
+           (buf[6] == 0xFF) &&
            (buf[7] == 0xFB) &&
            (buf[3] == 0x00) &&
            (buf[4] == 0x00) &&
@@ -1248,7 +1290,7 @@ void* send_thread(void* arg) {
     struct sockaddr_in server_addr = {
         .sin_family = AF_INET,
         .sin_port = htons(SEND_PORT),
-        .sin_addr.s_addr = inet_addr("192.168.2.66")
+        .sin_addr.s_addr = inet_addr(SERVER_IP)
     };
     bind(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
 
@@ -1278,7 +1320,7 @@ void* recv_thread(void* arg) {
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
         .sin_port = htons(RECV_PORT),
-        .sin_addr.s_addr = inet_addr("192.168.2.66")
+        .sin_addr.s_addr = inet_addr(SERVER_IP)
     };
     bind(sock, (struct sockaddr*)&addr, sizeof(addr));
 
@@ -1286,7 +1328,7 @@ void* recv_thread(void* arg) {
         unsigned char buf[PACKET_SIZE];
         struct sockaddr_in client_addr;
         socklen_t len = sizeof(client_addr);
-        
+
         ssize_t recv_len = recvfrom(sock, buf, PACKET_SIZE, 0,
                                    (struct sockaddr*)&client_addr, &len);
 
@@ -1307,7 +1349,7 @@ void* check_thread(void* arg) {
         sleep(1);  // 每秒检查一次
         pthread_mutex_lock(&mutex);
         time_t now = time(NULL);
-        
+
         if (now - last_recv_time > TIMEOUT) {
             heartbeat_data[2] = 0x00;
       //      printf("[Server] Timeout!\n");
@@ -1318,18 +1360,25 @@ void* check_thread(void* arg) {
 }
 
 int udp_heartbeat_server() {
+    load_config("/sharefs/config.ini");  // 加载配置文件
+    printf("UDP Heartbeat Server\n");
+    printf("SEND_PORT: %d\n", SEND_PORT);
+    printf("RECV_PORT: %d\n", RECV_PORT);
+    printf("CLIENT_IP: %s\n", CLIENT_IP);
+    printf("SERVER_IP: %s\n", SERVER_IP);
+    printf("TIMEOUT: %d\n", TIMEOUT);   
     pthread_t t1, t2, t3;
     last_recv_time = time(NULL);  // 初始化时间戳
-    
+
     pthread_create(&t1, NULL, send_thread, NULL);
     pthread_create(&t2, NULL, recv_thread, NULL);
     pthread_create(&t3, NULL, check_thread, NULL);
-   
+
     pthread_detach(t1);
     pthread_detach(t2);
     pthread_detach(t3);
     return 0;
-}
+} 
 
 //************************UDP heartbeat server******************************//
 
