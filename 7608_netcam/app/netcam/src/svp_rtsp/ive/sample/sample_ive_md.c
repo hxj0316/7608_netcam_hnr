@@ -1055,6 +1055,63 @@ static td_s32 sample_ive_md_pause(td_void)
     }
     return TD_FALSE;
 }
+//***灯板开关***//
+#define GPIO_BASE_ADDR 0x010230030
+#define PAGE_SIZE 4096
+
+#define GPIO_ON_CMD  "bspmm 0x010230030 0x1102"  // GPIO5_5 拉高
+#define GPIO_OFF_CMD "bspmm 0x010230030 0x1100"  // GPIO5_5 拉低
+
+volatile uint32_t *gpio_reg = NULL;
+
+// 初始化 GPIO mmap
+int init_gpio()
+{
+    int fd = open("/dev/mem", O_RDWR | O_SYNC);
+    if (fd < 0) {
+        perror("open /dev/mem failed");
+        return -1;
+    }
+
+    void *gpio_map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, GPIO_BASE_ADDR & ~(PAGE_SIZE - 1));
+    if (gpio_map == MAP_FAILED) {
+        perror("mmap failed");
+        close(fd);
+        return -1;
+    }
+
+    gpio_reg = (volatile uint32_t *)((char *)gpio_map + (GPIO_BASE_ADDR & (PAGE_SIZE - 1)));
+    close(fd);
+    return 0;
+}
+
+// 设置 GPIO 拉高
+void set_gpio_high()
+{
+    if (gpio_reg) {
+        *gpio_reg = 0x1102;
+    }
+}
+
+// 设置 GPIO 拉低
+void set_gpio_low()
+{
+    if (gpio_reg) {
+        *gpio_reg = 0x1100;
+    }
+}
+
+// 释放 GPIO mmap
+void release_gpio()
+{
+    if (gpio_reg) {
+        munmap((void *)((uintptr_t)gpio_reg & ~(PAGE_SIZE - 1)), PAGE_SIZE);
+        gpio_reg = NULL;
+    }
+}
+
+//**************//
+
 //***自动对焦***//
 extern td_u32 g_fv1;
 int direction,change_time;
@@ -1703,18 +1760,33 @@ void handle_command_df(int socket_fd, const unsigned char *buffer)
     switch (buffer[2]) {
         case 0x01:
             focus_test_1();
-            sleep_ms(24);
+            sleep_ms(16);
             focus_test_stop();
             printf("focus +\n");
             break;
         case 0x02:
             focus_test_2();
-            sleep_ms(24);
+            sleep_ms(16);
             focus_test_stop();
             printf("focus -\n");
             break;
     }
 }
+
+void handle_command_3f(int socket_fd, const unsigned char *buffer) {
+    // 灯板控制
+    init_gpio();
+    if (buffer[1] == 0x01) {
+	set_gpio_high();
+      printf("灯板开启!\n");
+    } else if (buffer[2] == 0x00) {
+	set_gpio_low();
+      printf("灯板关闭!\n");
+    }
+    release_gpio();
+
+}
+
 //*****************//
 
 void *tcp_server_tmp(){
@@ -1793,6 +1865,9 @@ while (1) {
 		case 0xdf:
 		    handle_command_df(new_socket, buffer);
                     break;
+		case 0x3f:
+		    handle_command_3f(new_socket, buffer);
+		    break;
                 default:
                     printf("Unknown command: 0x%02x\n", buffer[0]);
                     break;     
