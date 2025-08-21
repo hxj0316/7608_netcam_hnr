@@ -1116,7 +1116,9 @@ void release_gpio()
 extern td_u32 g_fv1;
 int direction,change_time;
 int last_fv, current_fv, next_fv, max_fv_value;
-
+int g_focusReadyToStop = 0;
+// 全局变量，用于保存当前的焦点百分比
+float focus_percent = 0.0f;
 // 线程停止标志
 volatile int g_focusAutoStop = 0;
 // focus_auto 线程函数
@@ -1128,7 +1130,9 @@ void *focus_auto_thread(void *arg)
     {
 	 printf("max_fv_value is:%d , g_fv1 is :%d\n",max_fv_value,g_fv1);   
        float percent = (float)abs((int)(max_fv_value - g_fv1)) / max_fv_value * 100;
-	 printf("Percentage: %.2f%%\n", percent);
+       // 将局部的 percent 赋值给全局变量 focus_percent
+       focus_percent = percent;	
+       printf("Percentage: %.2f%%\n", percent);
         if (percent > 10.0f || g_fv1 < 1000)
         {
 	    max_fv_value = 0;
@@ -1137,6 +1141,7 @@ void *focus_auto_thread(void *arg)
         else
         {
             focus_auto_10();
+	    g_focusReadyToStop = 1;
         }
 
         usleep(10 * 1000); // 100ms 避免过度占用 CPU
@@ -1469,14 +1474,6 @@ void send_file(int socket, const char *filename) {
     printf("File sent successfully.\n");
 }
 
-void handle_ircut_control(unsigned char *buffer) {
-    if (buffer[1] == 0x01) {
-        ircut_on();
-    } else if (buffer[1] == 0x00) {
-        ircut_off();
-    }
-}
-
 void handle_snap(int socket_fd){
 
         sample_ivs_md_proc(&g_md_info);
@@ -1676,6 +1673,10 @@ void handle_ocr_reset()
 
 // 指令解析及调用
 void handle_ocr_command(int socket_fd, const OCRCommand* cmd) {
+    static int consecutive_small_focus = 0;  // 用于追踪连续小焦点值的计数器
+    struct timeval start_time;  // 记录对焦开始的时间
+    struct timeval current_time;  // 当前时间，用于检查超时
+    long elapsed_time;  // 计算已经过去的时间（秒）
     if (!cmd->valid) {
         printf("无效指令！校验失败。\n");
         return;
@@ -1699,10 +1700,53 @@ void handle_ocr_command(int socket_fd, const OCRCommand* cmd) {
 		handle_ocr_reset();
 		// 执行变倍与变焦动作
             	handle_zoom_action(cmd->zoom_dir, cmd->zoom_factor);
-		sleep(2);
-            	handle_focus_action(cmd->focus_dir, cmd->focus_factor);
-		sleep(1);
+//		sleep(2);
+//            	handle_focus_action(cmd->focus_dir, cmd->focus_factor);
+//		sleep(1);
+		sdk_af_lens_init();
+		printf("g_focusReadyToStop_1 is: %d\n",g_focusReadyToStop);
+		start_focus_thread();
+		printf("g_focusReadyToStop_2 is: %d\n",g_focusReadyToStop);
+	            // 记录对焦开始的时间
+            	gettimeofday(&start_time, NULL);
+            	// 这里开始检查 `focus_percent` 值并计数
+            	while (!g_focusAutoStop) {
+                // 获取当前时间
+                gettimeofday(&current_time, NULL);
+
+                // 计算已经过去的时间（单位：秒）
+                elapsed_time = (current_time.tv_sec - start_time.tv_sec);
+
+                printf("当前焦点百分比: %.2f%%\n", focus_percent);
+
+                // 如果 `focus_percent` 在 0% 到 10% 之间，计数器加 1
+                if (focus_percent > 0.0f && focus_percent < 10.0f) {
+                    consecutive_small_focus++;
+                    printf("连续小焦点次数: %d\n", consecutive_small_focus);
+                } else {
+                    // 否则，重置计数器
+                    consecutive_small_focus = 0;
+                }
+                // 如果连续小焦点次数达到 20 次，停止对焦
+                if (consecutive_small_focus >= 20) {
+                    printf("[FocusAuto] 因为连续 20 次小焦点值，停止自动对焦。\n");
+                    g_focusAutoStop = 1;
+		    consecutive_small_focus = 0;
+                    break;
+                }
+                // 如果超过 20 秒且还没有达到 20 次小焦点值，停止对焦
+                if (elapsed_time >= 20) {
+                    printf("[FocusAuto] 超过 20 秒没有达到连续 20 次小焦点，停止自动对焦。\n");
+                    g_focusAutoStop = 1;
+		    consecutive_small_focus = 0;
+                    break;
+                }
+                usleep(10 * 1000); // 100ms，避免过度占用 CPU
+            }	
+		stop_focus_thread();
+		sleep(4);
 		handle_snap(socket_fd);
+		g_focusReadyToStop = 0;
 		break;
 	case IPC_ACTION_FINETUNE:
 		printf("对焦微调\n");
@@ -1787,6 +1831,15 @@ void handle_command_3f(int socket_fd, const unsigned char *buffer) {
 
 }
 
+void handle_command_af(int socket_fd, const unsigned char *buffer) {
+    // IRCUT控制
+    if (buffer[1] == 0x01) {
+        ircut_on();
+    } else if (buffer[1] == 0x00) {
+        ircut_off();
+    }
+}
+
 //*****************//
 
 void *tcp_server_tmp(){
@@ -1867,6 +1920,9 @@ while (1) {
                     break;
 		case 0x3f:
 		    handle_command_3f(new_socket, buffer);
+		    break;
+		case 0xaf:
+		    handle_command_af(new_socket, buffer);
 		    break;
                 default:
                     printf("Unknown command: 0x%02x\n", buffer[0]);
