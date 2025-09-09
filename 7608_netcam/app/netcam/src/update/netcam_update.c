@@ -372,7 +372,6 @@ void *netcam_update_malloc(int size)
             return NULL;
         }
     }
-
     shmidFile = shmget((key_t)8892, size, 0666|IPC_CREAT);   //创建共享内存
     if(shmidFile == -1)
     {

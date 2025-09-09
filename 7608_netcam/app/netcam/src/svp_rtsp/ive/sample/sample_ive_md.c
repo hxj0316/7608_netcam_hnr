@@ -1448,7 +1448,7 @@ int udp_heartbeat_server() {
 /*TCP server */
 //#define SERVER_IP "192.168.2.99"
 #define SERVER_PORT 5477
-#define BUFFER_SIZE 16
+#define BUFFER_SIZE (4 * 1024)
 int uart_mcu_send;
 
 //int server_fd, new_socket;

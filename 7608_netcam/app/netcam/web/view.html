@@ -8,15 +8,13 @@
 <link href="SpryAssets/SpryMenuBarHorizontal.css" rel="stylesheet" type="text/css" />
 <link href="SpryAssets/SpryTabbedPanels.css" rel="stylesheet" type="text/css" />
 <link href="CSS/style.css" rel="stylesheet" type="text/css" />
-<link href="CSS/select2.min.css" rel="stylesheet" type="text/css"/>
-
 <!--<link href="CSS/jquery-ui.css" />-->
 <link href="CSS/jquery-ui.min.css" rel="stylesheet" />
 <style type="text/css">
 .table_wifi table{background:#999999;}
 .table_wifi table td{background:#ededef;}
 .proccess{border:1px solid;width:8px;height:8px;background:#ffffff;margin:3px;}
-.noneStyle{display: none;}
+
 </style>
 <!--<script type="text/javascript" src="js/slider.js"></script>-->
 <script src="SpryAssets/SpryMenuBar.js" type="text/javascript"></script>
@@ -30,11 +28,29 @@
 <script src="js/function.js?123=12" type="text/javascript"></script>
 <script src="js/swfupload.js" type="text/javascript"></script>
 <script src="js/jquery.qrcode.min.js" type="text/javascript"></script>
-<script src="js/select2.min.js" type="text/javascript"></script>
 <!--<script src="js/string.js" type="text/javascript"></script>-->
 <!--<script src="js/handler.js" type="text/javascript"></script>-->
 <title>IPCAM</title>
-
+<style>
+	/* 通用按钮样式 */
+	.ctrl-btn {
+		padding: 5px 10px;
+		margin: 2px;
+		border: 1px solid #ccc;
+		border-radius: 6px;
+		background: #f5f5f5;
+		cursor: pointer;
+	}
+	.ctrl-btn:hover {
+		background: #e6e6e6;
+	}
+	.ctrl-btn:active {
+		background: #dcdcdc;
+	}
+	table {
+		border-collapse: collapse;
+	}
+</style>
 </head>
 <body onload="viewload()" onunload="htmlclose()">
 <!--网页main-->
@@ -106,11 +122,16 @@
 				<label id="lb_malv" style="float:left; height:20px; margin-top:5px; margin-left:10px"></label>
 				<label id="lb_fenbilv" style="float:right; margin-top:5px; margin-right:10px;"></label>
 			</div>
-			<div id="View_Tips" style="display:none;">
-				<a id="Tips" style="color:#666; text-decoration:underline;" href="http://goke.lpwei.com/IPCSetup.exe">
-						<!--Tips:请下载并安装播放插件！-->
-				</a>
-			</div>
+<div id="Video" style="width: 100%; height: 100%; background-color: black;">
+  <!-- iframe 播放器内嵌 -->
+  <iframe
+    id="webrtcIframe"
+    src="http://192.168.2.99:8889/stream01"
+    style="width: 100%; height: 100%; border: none;"
+    allow="camera; microphone; autoplay"
+  ></iframe>
+</div>
+
 			<div id="View_object" style=" height:515px; margin-left:4px; margin-top:0px;">
 			</div>
 		</div>
@@ -465,6 +486,71 @@
 
 					</tr>
 				</table>
+					<!-- Zoom & Focus 控制按钮（三行，不超出边界） -->
+					<table width="140px" style="margin-left:auto; margin-right:auto; margin-top:8px; text-align:center;">
+    			<tr>
+       				<td><button class="ctrl-btn" onclick="zoom_control('in')">Zoom+</button></td>
+        			<td><button class="ctrl-btn" onclick="zoom_control('out')">Zoom-</button></td>
+    			</tr>
+    			<tr>
+        			<td colspan="2">
+            		<button class="ctrl-btn full-btn" onclick="focus_control('auto')">自动对焦</button>
+        			</td>
+    			</tr>
+    			<tr>
+        			<td><button class="ctrl-btn" onclick="focus_control('in')">Focus+</button></td>
+        			<td><button class="ctrl-btn" onclick="focus_control('out')">Focus-</button></td>
+    			</tr>
+					</table>
+			<style>
+    		/* 统一按钮样式 */
+		    .ctrl-btn {
+        		width: 60px;
+        		height: 28px;
+        		margin: 2px;
+        		border: 1px solid #ccc;
+        		border-radius: 6px;
+        		background: #f5f5f5;
+        		font-size: 13px;
+        		cursor: pointer;
+    			}
+    		.ctrl-btn:hover {
+        		background: #e6e6e6;
+    			}
+    		.ctrl-btn:active {
+        		background: #dcdcdc;
+    			}
+    		/* 自动对焦按钮独占整行 */
+    		.full-btn {
+        		width: 124px; /* 140px 表格宽度 - 两边 margin */
+    			}
+</style>
+
+<script>
+    function zoom_control(action) {
+        if (action === 'in') {
+            console.log("Zoom +");
+            // TODO: 调用摄像机接口实现放大
+        } else if (action === 'out') {
+            console.log("Zoom -");
+            // TODO: 调用摄像机接口实现缩小
+        }
+    }
+
+    function focus_control(action) {
+        if (action === 'auto') {
+            console.log("Auto Focus");
+            // TODO: 调用摄像机接口自动对焦
+        } else if (action === 'in') {
+            console.log("Focus +");
+            // TODO: 调用摄像机接口手动拉近焦点
+        } else if (action === 'out') {
+            console.log("Focus -");
+            // TODO: 调用摄像机接口手动拉远焦点
+        }
+    }
+</script>
+
 			</div>
 		</div>
 	</div>
@@ -518,11 +604,33 @@
                 </ul>
                 <div class="TabbedPanelsContentGroup">
                     <div class="TabbedPanelsContent">
-                        <div id="View_Image_Basic" class="div_obj">
-                        </div>
+						<div id="Video" style="width: 640px; height: 480px;         width:640px;
+						height:480px;
+						margin-left:0px;
+						margin-right:0px;
+						margin-top:10px;
+						display:inline;
+						float:left;
+						border:1px solid #000;
+				background-color: black;">
+							<!-- iframe 播放器内嵌 -->
+							<iframe
+							  id="webrtcIframe"
+							  src="http://192.168.2.99:8889/stream01"
+							  style="width: 640px; height: 480px; border: none;        
+							  margin-left:0px;
+							  margin-right:0px;
+							  margin-top:10px; 
+							  display:inline;
+							  float:left;
+							  border:1px solid #000;
+					  "
+							  allow="camera; microphone; autoplay"
+							></iframe>
+						  </div>
                         <div class="div_ctr">
 							<table width="290" border="0">
-								<tr class="noneStyle">
+								<tr>
 									<td width="100" height="20px" align="right"><script>document.write(str_pwm_control);</script><!--PWM控制--></td>
 									<td width="190" height="20px" align="left">
 									<select name="select_pwm_control" id="select_pwm_control" style="width:150px; height:20px; margin-left:10px;" onchange="pwm_iso_control(this.id)">
@@ -532,7 +640,7 @@
 									</select>
 									</td>
 								</tr>
-								<tr class="noneStyle">
+								<tr>
 									<td width="100" height="20px" align="right"><script>document.write(str_pwm_iso);</script><!--PWM控制ISO阀值--></td>
 									<td width="190" height="20px" align="left">
 									<select name="select_pwm_iso" id="select_pwm_iso" style="width:150px; height:20px; margin-left:10px;" onchange="pwm_iso_control(this.id)">
@@ -544,7 +652,7 @@
 									</select>
 									</td>
 								</tr>
-								<tr class="noneStyle">
+								<tr>
 									<td height="20px" align="right"> <script>document.write(str_pwm_duty);</script><!--PWM占空比-->
 									<td>
 										<table>
@@ -581,7 +689,7 @@
 									</td>
 								</tr>
 								
-								<tr class="noneStyle">
+								<tr>
 									<td width="100" height="20px" align="right"><script>document.write(str_power_frequency);</script><!--电源频率--></td>
 									<td width="190" height="20px" align="left">
 									<select name="select_power_frequency" id="select_power_frequency" style="width:150px; height:20px; margin-left:10px;" onchange="image_content_change(this.id)">
@@ -1015,7 +1123,7 @@
 									</td>
 								</tr>-->
 
-								<tr class="noneStyle">
+								<tr>
 									<td align="right"><script>document.write(str_situational_model);</script><!--情景模式--></td>
 									<td align="left">
 										<label for="select_5_1"></label>
@@ -1026,7 +1134,7 @@
 										</select>
 									</td>
 								</tr>
-								<tr class="noneStyle">
+								<tr>
 									<td align="right"><script>document.write(str_image_style);</script><!--图像风格--></td>
 									<td align="left">
 										<label for="select_5_2"></label>
@@ -1220,7 +1328,7 @@
 									<td width="170" align="center"><input type="checkbox" id="Mirror" onClick="image_content_change(this.id);"/><script>document.write(str_mirror);</script><!--左右翻转--> </td>
 								</tr>
 							</table>                            
-							<table width="290px" class="noneStyle">
+							<table width="290px">
 								<tr>
 									<td width="108" align="right" ><input type="checkbox" id="led1"   onClick="image_content_change(this.id);"/><script>document.write(str_led1);</script><!--指示灯1--> </td>
 									<td width="170" align="center"><input type="checkbox" id="led2" onClick="image_content_change(this.id);"/><script>document.write(str_led2);</script><!--指示灯2--> </td>
@@ -2712,50 +2820,6 @@
                             </form>
                         </td>
                     </tr>
-	<tr>
-                        <td align="right"><script>document.write(str_switch_ai);</script><!--AI开关--></td>
-                        <td>
-							<!-- <form id="form8" name="form8" method="post" action=""> -->
-                            <table width="200">
-                                <tr>
-                                    <td>
-                                        <input type="radio" name="AI_switch" value="0" onchange="AIControl_change(this.id)" id="AI_switch_0"  />
-                                        <script>document.write(str_rb_close);</script><!--关闭-->
-                                    </td>
-                                    <td>
-                                        <input type="radio" name="AI_switch" value="1" id="AI_switch_1" onchange="AIControl_change(this.id)" />
-                                        <script>document.write(str_rb_open);</script><!--开启-->
-                                    </td>
-                                </tr>
-                            </table>
-                            <!-- </form> -->
-                        </td>
-                    </tr>
-					<tr>
-                        <td><script>document.write(str_ai_report_ip);</script><!--AI数据上报网址--></td>
-                        <td><input type="text" id="AI_PlatUrl" width="150px" height="25px"/></td>
-                    </tr>
-					
-					<tr>
-                        <td><script>document.write("AI result");</script><!--AIresult--></td>
-                        <td><input type="text" id="AI_result" width="150px" height="25px"/></td>
-                    </tr>
-
-					<tr>
-					    <td><script>document.write(str_ai_model);</script><!--AI模型下发--></td>
-						  <td>
-    						<select id="aiModel_select" name="" style="width:280px; height:220px;" multiple="multiple" >
-      							<option value="0">车牌识别</option>
-      							<option value="1">人脸识别</option>
-      							<option value="2">车牌检测</option>
-      							<option value="3">车辆、人形检测</option>
-      							<option value="4">人脸检测</option>
-      							<option value="5">烟火检测</option>
-      							<option value="6">安全帽检测</option>
-      							<option value="7">反光衣检测</option>
-    						  </select>
-						    </td>
-					</tr>
                     <tr>
                         <td colspan="2" align="center">
                             <button id="userinfo_add" onclick="sys_sync_time_zone_save()">
@@ -2806,37 +2870,297 @@
                     </table>
                   </div>
                 </div>
-                <div class="TabbedPanelsContent">
-                    <div style="margin-left:7px; margin-top:10px; float:left; margin-right:10px; display:inline;">
-                      <table>
-                      <tr>
-                     	<td><script>document.write(str_click_upgrade);</script></td>
-                      </tr>
-                      <tr>
-						<td>
-							<div id="swfuploads" >
-								<button id="swfupload" style="
-								height: 26px;
-								width: 36px;"></button>
+				<div class="TabbedPanelsContent">
+				<style>
+					.upload-container {
+						margin: 20px;
+					}
+					.upload-section {
+						margin-bottom: 30px;
+						padding: 15px;
+						border: 1px solid #e0e0e0;
+						border-radius: 5px;
+					}
+					.upload-section h3 {
+						margin-top: 0;
+						color: #333;
+					}
+					.upload-btn {
+						display: inline-block;
+						padding: 8px 16px;
+						font-size: 14px;
+						color: #fff;
+						background-color: #409EFF;
+						border: none;
+						border-radius: 4px;
+						cursor: pointer;
+						transition: background-color 0.3s;
+					}
+					.upload-btn:hover {
+						background-color: #66b1ff;
+					}
+					.progress-container {
+						margin-top: 15px;
+					}
+					.progress-item {
+						margin: 10px 0;
+						font-size: 13px;
+					}
+					.file-info {
+						display: flex;
+						justify-content: space-between;
+						margin-bottom: 5px;
+					}
+					.file-name {
+						overflow: hidden;
+						text-overflow: ellipsis;
+						white-space: nowrap;
+					}
+					.progress-bar {
+						height: 8px;
+						background-color: #e5e5e5;
+						border-radius: 4px;
+						overflow: hidden;
+					}
+					.progress-bar-fill {
+						height: 100%;
+						background-color: #67c23a;
+						width: 0%;
+						transition: width 0.3s;
+					}
+					.status {
+						margin-top: 5px;
+						font-size: 12px;
+						color: #666;
+					}
+					.success {
+						color: #67c23a;
+					}
+					.error {
+						color: #f56c6c;
+					}
+				</style>
+				<div class="upload-container">
+					<!-- 板端固件更新区域 -->
+					<div class="upload-section">
+						<h3>板端固件更新</h3>
+						<input type="file" id="boardFirmwareInput" class="fileInput" style="display:none" />
+						<button class="upload-btn" id="boardFirmwareBtn">选择并上传文件</button>
+						<div class="progress-container" id="boardFirmwareProgress"></div>
+					</div>
+			
+					<!-- OCR文件更新区域 -->
+					<div class="upload-section">
+						<h3>OCR文件更新</h3>
+						<input type="file" id="ocrFileInput" class="fileInput" style="display:none" />
+						<button class="upload-btn" id="ocrFileBtn">选择并上传文件</button>
+						<div class="progress-container" id="ocrFileProgress"></div>
+					</div>
+				</div>
+			
+				<script>
+					// 上传函数
+					function uploadFile(file, uploadUrl, progressContainer, callbacks) {
+						var xhr = new XMLHttpRequest();
+						var formData = new FormData();
+						formData.append("file", file);
+			
+						// 创建进度显示元素
+						var item = document.createElement("div");
+						item.className = "progress-item";
+						
+						var fileInfo = document.createElement("div");
+						fileInfo.className = "file-info";
+						
+						var fileName = document.createElement("div");
+						fileName.className = "file-name";
+						fileName.textContent = file.name;
+						fileInfo.appendChild(fileName);
+						
+						var fileSize = document.createElement("div");
+						fileSize.className = "file-size";
+						fileSize.textContent = formatFileSize(file.size);
+						fileInfo.appendChild(fileSize);
+						
+						item.appendChild(fileInfo);
+						
+						var progressBar = document.createElement("div");
+						progressBar.className = "progress-bar";
+						
+						var progressFill = document.createElement("div");
+						progressFill.className = "progress-bar-fill";
+						progressBar.appendChild(progressFill);
+						
+						item.appendChild(progressBar);
+						
+						var status = document.createElement("div");
+						status.className = "status";
+						status.textContent = "等待上传...";
+						item.appendChild(status);
+						
+						progressContainer.appendChild(item);
+			
+						// 上传进度事件
+						xhr.upload.addEventListener("progress", function(e) {
+							if (e.lengthComputable) {
+								var percent = Math.round((e.loaded / e.total) * 100);
+								progressFill.style.width = percent + "%";
+								status.textContent = "上传中: " + percent + "%";
 								
-							</div>
-						</td>
-                    </tr>
-                    </table>
-                    </div>
-                    <div style="margin-top:10px; margin-left:3px;">
-                        <table>
-                        <tr>
-                            <td>
-                                <label id="percentage_upload" style="float:left; height:20px;"></label>
-                            </td>
-                            <td>
-                                <label id="uplaod_status" style="float:left; height:20px;"></label>
-                            </td>
-                        </tr>
-                    </table>
-                        </div>
-                </div>
+								if (callbacks.upload_progress_handler) {
+									callbacks.upload_progress_handler(file, e.loaded, e.total);
+								}
+							}
+						});
+			
+						// 上传完成事件
+						xhr.addEventListener("load", function() {
+							if (xhr.status === 200) {
+								progressFill.style.backgroundColor = "#67c23a";
+								status.textContent = "上传成功";
+								status.className = "status success";
+								
+								if (callbacks.upload_success_handler) {
+									callbacks.upload_success_handler(file, xhr.responseText);
+								}
+							} else {
+								progressFill.style.backgroundColor = "#f56c6c";
+								status.textContent = "上传失败: " + xhr.statusText;
+								status.className = "status error";
+								
+								if (callbacks.upload_error_handler) {
+									callbacks.upload_error_handler(file, xhr.statusText);
+								}
+							}
+							
+							if (callbacks.upload_complete_handler) {
+								callbacks.upload_complete_handler(file);
+							}
+						});
+			
+						// 上传错误事件
+						xhr.addEventListener("error", function() {
+							progressFill.style.backgroundColor = "#f56c6c";
+							status.textContent = "上传出错";
+							status.className = "status error";
+							
+							if (callbacks.upload_error_handler) {
+								callbacks.upload_error_handler(file, "网络错误");
+							}
+							
+							if (callbacks.upload_complete_handler) {
+								callbacks.upload_complete_handler(file);
+							}
+						});
+			
+						// 开始上传
+						xhr.open("POST", uploadUrl, true);
+						xhr.send(formData);
+					}
+			
+					// 初始化上传器
+					function initUploader(options) {
+						// 板端固件上传
+						var boardInput = document.getElementById("boardFirmwareInput");
+						var boardBtn = document.getElementById("boardFirmwareBtn");
+						var boardProgress = document.getElementById("boardFirmwareProgress");
+						
+						boardBtn.addEventListener("click", function() {
+							boardInput.click();
+						});
+						
+						boardInput.addEventListener("change", function() {
+							if (this.files.length > 0) {
+								handleFileSelection(this.files, "/web_upgrade", boardProgress, options);
+							}
+							this.value = "";
+						});
+			
+						// OCR文件上传
+						var ocrInput = document.getElementById("ocrFileInput");
+						var ocrBtn = document.getElementById("ocrFileBtn");
+						var ocrProgress = document.getElementById("ocrFileProgress");
+						
+						ocrBtn.addEventListener("click", function() {
+							ocrInput.click();
+						});
+						
+						ocrInput.addEventListener("change", function() {
+							if (this.files.length > 0) {
+								handleFileSelection(this.files, "/ai_upgrade", ocrProgress, options);
+							}
+							this.value = "";
+						});
+					}
+			
+					// 处理文件选择
+					function handleFileSelection(files, uploadUrl, progressContainer, options) {
+						for (var i = 0; i < files.length; i++) {
+							var file = files[i];
+							
+							// 文件大小限制检查
+							if (options.file_size_limit > 0 && file.size > options.file_size_limit * 1024 * 1024) {
+								if (options.file_queue_error_handler) {
+									options.file_queue_error_handler(file, "文件大小超过限制");
+								}
+								continue;
+							}
+							
+							// 文件类型检查
+							if (options.allowed_file_types && options.allowed_file_types.length > 0) {
+								var fileExt = file.name.split('.').pop().toLowerCase();
+								if (!options.allowed_file_types.includes(fileExt)) {
+									if (options.file_queue_error_handler) {
+										options.file_queue_error_handler(file, "不支持的文件类型");
+									}
+									continue;
+								}
+							}
+							
+							if (options.upload_start_handler) {
+								options.upload_start_handler(file);
+							}
+							
+							uploadFile(file, uploadUrl, progressContainer, options);
+						}
+					}
+			
+					// 格式化文件大小
+					function formatFileSize(bytes) {
+						if (bytes === 0) return '0 B';
+						var k = 1024;
+						var sizes = ['B', 'KB', 'MB', 'GB'];
+						var i = Math.floor(Math.log(bytes) / Math.log(k));
+						return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+					}
+			
+					// 初始化上传器配置
+					initUploader({
+						file_size_limit: 16, // 16MB
+						//allowed_file_types: ["bin", "img", "txt", "pdf", "zip"], // 允许的文件类型
+						
+						file_queue_error_handler: function(file, error) {
+							alert("错误: " + file.name + " - " + error);
+						},
+						upload_start_handler: function(file) {
+							console.log("开始上传:", file.name);
+						},
+						upload_progress_handler: function(file, loaded, total) {
+							console.log("上传进度:", file.name, Math.round((loaded / total) * 100) + "%");
+						},
+						upload_success_handler: function(file, response) {
+							console.log("上传成功:", file.name, response);
+						},
+						upload_error_handler: function(file, error) {
+							console.error("上传失败:", file.name, error);
+						},
+						upload_complete_handler: function(file) {
+							console.log("上传完成:", file.name);
+						}
+					});
+				</script>
+				</div>
+						
                 <div class="TabbedPanelsContent">
                     <div class="content_left">
                         <button id="btn_rebbot" onclick="sys_setting_reboot()">

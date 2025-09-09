@@ -1957,20 +1957,24 @@ static int ai_upgrade_read_cb(HTTP_OPS* ops, void* arg)
 
 void restart_eac_ocr()
 {
-    // 停止现有的 eac_ocr 进程
     printf("Stopping eac_ocr process...\n");
-    system("pkill -f eac_ocr");  // 使用 `pkill` 根据进程名停止进程
-
-    // 给一点时间确保进程已停止
+    system("pkill -f eac_ocr");
     sleep(2);
 
-    // 启动新的 eac_ocr 进程
     printf("Starting eac_ocr process...\n");
-    int ret = system("/sharefs/ocr/bin/eac_ocr &");  // 请替换为 eac_ocr 程序的实际路径
-    if (ret == -1) {
-        perror("Failed to start eac_ocr");
+    pid_t pid = fork();
+    if (pid == 0) {
+        // 子进程: 执行脚本
+        execl("/bin/sh", "sh", "/sharefs/restart_ocr.sh", (char *)NULL);
+        perror("execl failed");
+        _exit(127);
+    } else if (pid > 0) {
+        // 父进程: 等待子进程退出
+        int status;
+        waitpid(pid, &status, 0);
+        printf("eac_ocr restarted, exit code = %d\n", WEXITSTATUS(status));
     } else {
-        printf("eac_ocr restarted successfully.\n");
+        perror("fork failed");
     }
 }
 
@@ -2004,10 +2008,6 @@ static int ai_upgrade_read(HTTP_OPS *ops, void *arg)
     fd = ops->get_connection_fd(ops);
     if (fd > 0)
     {
-            printf("netcam_update_relase_system_resource test!!!\n");
-            printf("netcam_update_relase_system_resource test!!!\n");
-        netcam_update_relase_system_resource();
-
         recvLen = 0;
         data = update_recv_http_body(fd, bodyLen, &recvLen);
         if (recvLen == bodyLen && data != NULL)
@@ -2056,13 +2056,24 @@ static int ai_upgrade_read(HTTP_OPS *ops, void *arg)
     }
 
 ERROR_EXIT:
+// 在 ERROR_EXIT 标签前修改释放方式
     if (data)
     {
+#ifdef MODULE_SUPPORT_UPGRADE_OUT
+        // 共享内存不需要释放
+#else
         free(data);
+#endif
+        data = NULL;
     }
-    netcam_sys_operation(NULL, (void *)SYSTEM_OPERATION_RESTART_APP);
+    //    if (data)
+//    {
+//        free(data);
+//	data = NULL;  // 防止重复释放
+//    }
+//    netcam_sys_operation(NULL, (void *)SYSTEM_OPERATION_RESTART_APP);
 
-    return HPE_RET_OUTOF_MEMORY;
+//    return HPE_RET_OUTOF_MEMORY;
 }
 //*****************************//
 
