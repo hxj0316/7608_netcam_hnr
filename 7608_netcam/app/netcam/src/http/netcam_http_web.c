@@ -2264,6 +2264,55 @@ static int web_snapshot(HTTP_OPS* ops, void* arg)
     return HPE_RET_SUCCESS;
 }
 
+static int web_zoom_in(HTTP_OPS* ops, void* arg) {
+    zoom_test_1();
+    printf("Zoom + pressed\n");
+    return 0;
+}
+
+static int web_zoom_out(HTTP_OPS* ops, void* arg) {
+    zoom_test_2();
+    printf("Zoom - pressed\n");
+    return 0;
+}
+
+static int web_zoom_stop(HTTP_OPS* ops, void* arg) {
+    zoom_test_stop();
+    printf("Zoom stop\n");
+    return 0;
+}
+
+static int web_focus_in(HTTP_OPS* ops, void* arg) {
+    focus_test_1();
+    sleep_ms(16);
+    focus_test_stop();
+    printf("Focus + pressed\n");
+    return 0;
+}
+
+static int web_focus_out(HTTP_OPS* ops, void* arg) {
+    focus_test_2();
+    sleep_ms(16);
+    focus_test_stop();
+    printf("Focus - pressed\n");
+    return 0;
+}
+
+static int web_focus_auto(HTTP_OPS* ops, void* arg) {
+    sdk_af_lens_init(NULL);
+    start_focus_thread();
+    printf("Focus auto!\n");
+    return 0;
+}
+
+static int web_focus_stop(HTTP_OPS* ops, void* arg) {
+    sdk_af_lens_exit();
+    stop_focus_thread();
+    focus_auto_10();
+    printf("Focus stop!\n");
+    return 0;
+}
+
 static int web_snapshotjpg(HTTP_OPS* ops, void* arg)
 {
 	netcam_video_snapshot(GK_ENC_SNAPSHOT_SIZE_MAX, GK_ENC_SNAPSHOT_SIZE_MAX, "/tmp/web_snapshot2.jpg", GK_ENC_SNAPSHOT_QUALITY_MEDIUM);
@@ -2941,6 +2990,13 @@ void netcam_http_web_init()
 	http_mini_add_cgi_callback("/wireless", web_wireless, METHOD_PUT|METHOD_GET, (void *)0);
 	http_mini_add_cgi_callback("/wireless_enable",web_wifi_enable, METHOD_PUT|METHOD_GET, (void *)0);
 	http_mini_add_cgi_callback("/snapshot", web_snapshot, METHOD_GET, (void *)0);
+	http_mini_add_cgi_callback("/zoom_in", web_zoom_in, METHOD_PUT|METHOD_GET, (void *)0);
+	http_mini_add_cgi_callback("/zoom_out", web_zoom_out, METHOD_PUT|METHOD_GET, (void *)0);
+	http_mini_add_cgi_callback("/zoom_stop", web_zoom_stop, METHOD_PUT|METHOD_GET, (void *)0);
+	http_mini_add_cgi_callback("/focus_in", web_focus_in, METHOD_PUT|METHOD_GET, (void *)0);
+	http_mini_add_cgi_callback("/focus_out", web_focus_out, METHOD_PUT|METHOD_GET, (void *)0);
+	http_mini_add_cgi_callback("/focus_auto", web_focus_auto, METHOD_PUT|METHOD_GET, (void *)0);
+	http_mini_add_cgi_callback("/focus_stop", web_focus_stop, METHOD_PUT|METHOD_GET, (void *)0);
 	http_mini_add_cgi_callback("/snapshotjpg", web_snapshotjpg, METHOD_GET, (void *)0);
 	http_mini_add_cgi_callback("/language",web_language,METHOD_PUT|METHOD_GET,(void *)0);
 	//the format of http body is mail style updating package, it add mail information.

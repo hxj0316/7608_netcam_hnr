@@ -1133,7 +1133,7 @@ void *focus_auto_thread(void *arg)
        // 将局部的 percent 赋值给全局变量 focus_percent
        focus_percent = percent;	
        printf("Percentage: %.2f%%\n", percent);
-        if (percent > 10.0f || g_fv1 < 1000)
+        if (percent > 7.0f || g_fv1 < 1000)
         {
 	    max_fv_value = 0;
             fv_climb();

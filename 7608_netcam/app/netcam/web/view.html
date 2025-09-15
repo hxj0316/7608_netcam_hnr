@@ -128,7 +128,7 @@
     id="webrtcIframe"
     src="http://192.168.2.99:8889/stream01"
     style="width: 100%; height: 100%; border: none;"
-    allow="camera; microphone; autoplay"
+    allow="camera; microphone; autoplay; fullscreen"
   ></iframe>
 </div>
 
@@ -486,68 +486,148 @@
 
 					</tr>
 				</table>
-					<!-- Zoom & Focus 控制按钮（三行，不超出边界） -->
-					<table width="140px" style="margin-left:auto; margin-right:auto; margin-top:8px; text-align:center;">
-    			<tr>
-       				<td><button class="ctrl-btn" onclick="zoom_control('in')">Zoom+</button></td>
-        			<td><button class="ctrl-btn" onclick="zoom_control('out')">Zoom-</button></td>
-    			</tr>
-    			<tr>
-        			<td colspan="2">
-            		<button class="ctrl-btn full-btn" onclick="focus_control('auto')">自动对焦</button>
-        			</td>
-    			</tr>
-    			<tr>
-        			<td><button class="ctrl-btn" onclick="focus_control('in')">Focus+</button></td>
-        			<td><button class="ctrl-btn" onclick="focus_control('out')">Focus-</button></td>
-    			</tr>
-					</table>
-			<style>
-    		/* 统一按钮样式 */
-		    .ctrl-btn {
-        		width: 60px;
-        		height: 28px;
-        		margin: 2px;
-        		border: 1px solid #ccc;
-        		border-radius: 6px;
-        		background: #f5f5f5;
-        		font-size: 13px;
-        		cursor: pointer;
-    			}
-    		.ctrl-btn:hover {
-        		background: #e6e6e6;
-    			}
-    		.ctrl-btn:active {
-        		background: #dcdcdc;
-    			}
-    		/* 自动对焦按钮独占整行 */
-    		.full-btn {
-        		width: 124px; /* 140px 表格宽度 - 两边 margin */
-    			}
+<!-- Zoom & Focus 控制按钮（三行，不超出边界） -->
+<table width="140px" style="margin-left:auto; margin-right:auto; margin-top:8px; text-align:center;">
+    <tr>
+        <td><button class="ctrl-btn" id="zoom_in_btn">变倍+</button></td>
+        <td><button class="ctrl-btn" id="zoom_out_btn">变倍-</button></td>
+    </tr>
+    <tr>
+        <td colspan="2">
+            <button class="ctrl-btn full-btn" id="focus_toggle_btn" onclick="toggle_focus()">自动对焦</button>
+        </td>
+    </tr>
+    <tr>
+        <td><button class="ctrl-btn" onclick="focus_control('in')">变焦+</button></td>
+        <td><button class="ctrl-btn" onclick="focus_control('out')">变焦-</button></td>
+    </tr>
+</table>
+
+<style>
+    /* 统一按钮样式 */
+    .ctrl-btn {
+        width: 60px;
+        height: 28px;
+        margin: 2px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        background: #f5f5f5;
+        font-size: 13px;
+        cursor: pointer;
+    }
+    .ctrl-btn:hover {
+        background: #e6e6e6;
+    }
+    .ctrl-btn:active {
+        background: #dcdcdc;
+    }
+    /* 自动对焦按钮独占整行 */
+    .full-btn {
+        width: 124px; /* 140px 表格宽度 - 两边 margin */
+    }
 </style>
 
+<div id="result" style="margin-top:10px; font-size:12px; color:green;"></div>
+
 <script>
-    function zoom_control(action) {
-        if (action === 'in') {
-            console.log("Zoom +");
-            // TODO: 调用摄像机接口实现放大
-        } else if (action === 'out') {
-            console.log("Zoom -");
-            // TODO: 调用摄像机接口实现缩小
+    let zoomInterval = null;
+    let zoomActive = false; // Zoom 按钮的控制状态
+
+    // ========== Zoom 按压控制 ==========
+
+    // 按下按钮时开始变倍操作
+    function start_zoom(action) {
+        if (zoomActive) return; // 如果已经开始操作，忽略
+        zoomActive = true;
+
+        // 开始持续的 zoom 操作
+        function sendZoom() {
+            if (!zoomActive) return;  // 松开按钮时停止
+
+            fetch(`/zoom_${action}`, { method: "GET" })
+                .then(res => res.text())
+                .then(txt => {
+                    document.getElementById("result").innerText = txt;
+                })
+                .catch(err => {
+                    console.error("Zoom error:", err);
+                    document.getElementById("result").innerText = "Zoom Error!";
+                });
+
+            // 递归调度下次请求
+            zoomInterval = setTimeout(sendZoom, 150); // 每 150ms 发送一次请求
+        }
+
+        sendZoom();  // 初始调用一次
+    }
+
+    // 松开按钮时，发送 zoom_stop 请求并停止操作
+    function stop_zoom() {
+        zoomActive = false; // 标记停止
+        clearTimeout(zoomInterval); // 清除定时器
+        zoomInterval = null; // 重置定时器
+
+        // 发送 zoom_stop 请求
+        fetch("/zoom_stop", { method: "GET" })
+            .then(res => res.text())
+            .then(txt => {
+                document.getElementById("result").innerText = txt;
+            })
+            .catch(err => {
+                console.error("Zoom stop error:", err);
+                document.getElementById("result").innerText = "Zoom Stop Error!";
+            });
+    }
+
+    // 绑定事件：按下开始变倍，松开停止
+    document.getElementById("zoom_in_btn").addEventListener("mousedown", () => start_zoom("in"));
+    document.getElementById("zoom_in_btn").addEventListener("mouseup", stop_zoom);
+    document.getElementById("zoom_in_btn").addEventListener("mouseleave", stop_zoom);
+
+    document.getElementById("zoom_out_btn").addEventListener("mousedown", () => start_zoom("out"));
+    document.getElementById("zoom_out_btn").addEventListener("mouseup", stop_zoom);
+    document.getElementById("zoom_out_btn").addEventListener("mouseleave", stop_zoom);
+
+    // ========== Focus 自动对焦切换 ==========
+
+    let isFocusing = false;
+
+    function toggle_focus() {
+        let btn = document.getElementById("focus_toggle_btn");
+        if (!isFocusing) {
+            // 开启自动对焦
+            fetch("/focus_auto", { method: "GET" })
+                .then(res => res.text())
+                .then(txt => {
+                    document.getElementById("result").innerText = txt;
+                });
+            btn.innerText = "停止对焦";
+            isFocusing = true;
+        } else {
+            // 停止对焦
+            fetch("/focus_stop", { method: "GET" })  // 你可以在后端实现 /focus_stop
+                .then(res => res.text())
+                .then(txt => {
+                    document.getElementById("result").innerText = txt;
+                });
+            btn.innerText = "自动对焦";
+            isFocusing = false;
         }
     }
 
+    // ========== Focus 手动控制 ==========
+
     function focus_control(action) {
-        if (action === 'auto') {
-            console.log("Auto Focus");
-            // TODO: 调用摄像机接口自动对焦
-        } else if (action === 'in') {
-            console.log("Focus +");
-            // TODO: 调用摄像机接口手动拉近焦点
-        } else if (action === 'out') {
-            console.log("Focus -");
-            // TODO: 调用摄像机接口手动拉远焦点
-        }
+        let url = `/focus_${action}`;
+        fetch(url, { method: "GET" })
+            .then(res => res.text())
+            .then(txt => {
+                document.getElementById("result").innerText = txt;
+            })
+            .catch(err => {
+                console.error("Focus error:", err);
+                document.getElementById("result").innerText = "Focus Error!";
+            });
     }
 </script>
 
@@ -625,7 +705,7 @@
 							  float:left;
 							  border:1px solid #000;
 					  "
-							  allow="camera; microphone; autoplay"
+							  allow="camera; microphone; autoplay; fullscreen"
 							></iframe>
 						  </div>
                         <div class="div_ctr">
