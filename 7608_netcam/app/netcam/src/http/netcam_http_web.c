@@ -1673,8 +1673,9 @@ static int web_sys_reboot(HTTP_OPS* ops, void* arg)
     sprintf(retData,"{\"statusCode\": \"%d\"}",0);
     ops->set_body_ex(ops,retData,strlen(retData));
     PRINT_INFO("Reboot system\n");
+    system("reboot");
 	//netcam_exit(90);
-    netcam_timer_add_task2(netcam_sys_operation,1,SDK_FALSE,SDK_FALSE,0,(void *)SYSTEM_OPERATION_REBOOT);
+   // netcam_timer_add_task2(netcam_sys_operation,1,SDK_FALSE,SDK_FALSE,0,(void *)SYSTEM_OPERATION_REBOOT);
     return HPE_RET_SUCCESS;
 }
 
