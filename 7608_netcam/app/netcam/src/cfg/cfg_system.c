@@ -376,7 +376,6 @@ start_load:
     CfgParseCjson(json, "NTP", ntpCfgMap);
 	CfgParseCjson(json, "Maintain", maintainCfgMap);
     CfgPrintMap(ntpCfgMap);
-    printf("wwwwhs print is %s\n", runSystemCfg.ntpCfg.AI_str);
 
     loadSpecialInfo();
 

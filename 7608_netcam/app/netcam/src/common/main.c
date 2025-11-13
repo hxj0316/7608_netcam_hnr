@@ -110,6 +110,8 @@
 
 #include "eventalarm.h"
 
+#define VERSION    "1.0.0"
+#define NAME    "EAC_OCR_OPENBOX_netcam"
 
 static sem_t  main_run_sem;
 extern ot_aio_attr aio_attr;
@@ -666,6 +668,10 @@ void ignore_SIGPIPE(void)
 
 int main(int argc, char *argv[])
 {
+	
+    printf("--------------------------------------------------------------\n");
+    printf("%s version: %s (%s, %s)\n", NAME, VERSION, __DATE__, __TIME__);
+    printf("--------------------------------------------------------------\n");
 #ifdef MODULE_SUPPORT_WATCHDOG
     struct tm *ptm;
     long ts;

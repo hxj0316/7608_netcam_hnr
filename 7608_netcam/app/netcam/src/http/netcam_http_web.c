@@ -1781,83 +1781,75 @@ static char *upgrade_data = NULL;
 static int upgrade_data_len = 0;
 int netcam_update_http_style(char *binData, int length, cbFunc updateCb)
 {
-    char boundary[256];
+    char boundary[256] = {0};
     char *findData;
-    char *startPtr;
-    char *endPtr;
-    char appLen[] = "Content-Type: application/octet-stream\r\n\r\n";
-
-    char *mailUpdateBuf = NULL;
+    char *startPtr, *endPtr;
     int mailUpdateLen = 0;
-    int i;
 
-    memset(boundary, 0, sizeof(boundary));
-
+    // 1. 提取 boundary
     findData = strstr(binData, "\r\n");
     if (findData == NULL)
     {
-        PRINT_ERR("update package is not mail style format \n");
+        printf("update package is not mail style format\n");
         goto update_mail_exit;
     }
-    memcpy(boundary, binData, findData - binData);
-    PRINT_INFO("boundary location: %s\n", boundary);
-    startPtr = strstr(binData, appLen);
+    int boundary_len = findData - binData;
+    if (boundary_len >= sizeof(boundary))
+        boundary_len = sizeof(boundary) - 1;
+    memcpy(boundary, binData, boundary_len);
+    boundary[boundary_len] = '\0';
+    printf("boundary: %s\n", boundary);
+
+    // 2. 找到第一个 part 的 Content-Type 行
+    startPtr = strstr(binData, "\r\n\r\n"); // part header 与内容之间的分隔
     if (startPtr == NULL)
     {
-        PRINT_ERR("No found start boundary info, error http update package");
+        printf("No header end found, invalid HTTP package\n");
+        goto update_mail_exit;
+    }
+    startPtr += 4; // 跳过 \r\n\r\n
+
+    // 3. 找到 part 的结束
+    endPtr = memmem(startPtr, length - (startPtr - binData), boundary, strlen(boundary));
+    if (endPtr == NULL)
+    {
+        printf("No boundary found, invalid HTTP package\n");
         goto update_mail_exit;
     }
 
-    startPtr += strlen(appLen);
-    PRINT_INFO("location: 0x%x\n", (int)startPtr);
-    endPtr = binData + length - 1;
-    i = 0;
-    while (*endPtr != '\0' && i < 1024)
+    // 4. 计算数据长度
+    mailUpdateLen = endPtr - startPtr - 2; // 去掉前面的 \r\n
+    if (mailUpdateLen <= 0)
     {
-        endPtr--;
-        i++;
-    }
-
-    PRINT_INFO("find end:  i=%d \n", i);
-    endPtr++;
-    endPtr = strstr(endPtr, boundary);
-    if (endPtr != NULL)
-    {
-        mailUpdateLen = endPtr - startPtr - 2;
-        PRINT_INFO("len:%d\n", mailUpdateLen);
-    }
-    else
-    {
-        PRINT_ERR("No found end boundary info, error http update package");
+        printf("Invalid part length\n");
         goto update_mail_exit;
     }
 
-    mailUpdateBuf = startPtr;
-
+    // 5. 分配缓冲区并复制数据
     if (upgrade_data != NULL)
-    {
         free(upgrade_data);
-    }
     upgrade_data = malloc(mailUpdateLen);
     if (upgrade_data == NULL)
     {
-        PRINT_ERR("Memory allocation failed for upgrade data\n");
+        printf("Memory allocation failed\n");
         goto update_mail_exit;
     }
-    memcpy(upgrade_data, mailUpdateBuf, mailUpdateLen);
+    memcpy(upgrade_data, startPtr, mailUpdateLen);
     upgrade_data_len = mailUpdateLen;
 
-    PRINT_INFO("Upgrade data stored successfully, length: %d\n", upgrade_data_len);
+    printf("Upgrade data stored successfully, length: %d\n", upgrade_data_len);
+
+//    // 6. 回调处理
+//    if (updateCb)
+//        updateCb(upgrade_data, upgrade_data_len);
 
     return 0;
 
 update_mail_exit:
     upgrade_data = NULL;
     upgrade_data_len = 0;
-
     return -1;
 }
-
 
 static int web_upgrade_read(HTTP_OPS *ops, void *arg)
 {
@@ -2144,6 +2136,236 @@ ERROR_EXIT:
 //	return  HPE_RET_OUTOF_MEMORY;
 //
 //}
+
+//********检测模型更新**********//
+static int paperbox_upgrade_read_cb(HTTP_OPS* ops, void* arg)
+{
+        int data = 1;
+        char retData[12];
+        sprintf(retData,"%d",data);
+
+        //PRINT_INFO();
+        ops->set_body_ex(ops,(char*)retData,strlen(retData));
+        return HPE_RET_DISCONNECT;
+}
+
+int decompress_tar(const char *tar_file, const char *dest_dir)
+{
+    char cmd[512];
+
+    // 构建命令：-x 解压, -f 文件名, -C 目标目录
+    snprintf(cmd, sizeof(cmd), "tar -zxvf %s -C %s", tar_file, dest_dir);
+
+    // 调用 shell 执行
+    int ret = system(cmd);
+    if (ret != 0) {
+        fprintf(stderr, "解压失败: %s\n", tar_file);
+        return -1;
+    }
+
+    printf("解压成功: %s -> %s\n", tar_file, dest_dir);
+    return 0;
+}
+
+
+static int paperbox_upgrade_read(HTTP_OPS *ops, void *arg)
+{
+    char *data = NULL;
+    char *tag;
+    int bodyLen;
+    int fd;
+    int recvLen = 0;
+    printf("hxj test\n");
+    printf("hxj test\n");
+    printf("hxj test\n");
+    if (netcam_get_update_status() < 0)
+    {
+        PRINT_ERR("is updating..............\n");
+        return HPE_RET_OUTOF_MEMORY;
+    }
+
+    tag = (char *)ops->get_tag(ops, (char *)"Content-Length");
+    bodyLen = atoi(tag);
+
+    if (bodyLen <= 0 || bodyLen > (50 * 1024 * 1024 + 4 * 1024))
+    {
+        goto ERROR_EXIT;
+    }
+
+    printf("hxj test_11\n");
+    printf("hxj test_11\n");
+    printf("hxj test_11\n");
+    fd = ops->get_connection_fd(ops);
+    if (fd > 0)
+    {
+        recvLen = 0;
+        data = update_recv_http_body(fd, bodyLen, &recvLen);
+        if (recvLen == bodyLen && data != NULL)
+        {
+          if (netcam_update_http_style(data, bodyLen, NULL) == 0)
+            {
+
+                printf("Upgrade package processed successfully\n");
+
+                if (rename("/sharefs/ocr/model/paperbox.om", "/sharefs/ocr/model/paperbox.om_bak") != 0)
+                {
+                    PRINT_ERR("Failed to rename /sharefs/ocr/model/paperbox.om to /sharefs/ocr/model/paperbox.om_bak\n");
+                }
+
+                int file_fd = open("/sharefs/ocr/model/paperbox.om", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (file_fd < 0)
+                {
+                    PRINT_ERR("Failed to open /sharefs/ocr/model/paperbox.om for writing\n");
+                    goto ERROR_EXIT;
+                }
+
+                ssize_t written_len = write(file_fd, upgrade_data, recvLen);
+                if (written_len != recvLen)
+                {
+                    PRINT_ERR("Failed to write all data to /sharefs/ocr/model/paperbox.om\n");
+                    close(file_fd);
+                    goto ERROR_EXIT;
+                }
+
+                close(file_fd);
+                printf("Data successfully saved to /sharefs/ocr/model/paperbox.om\n");
+		decompress_tar("/sharefs/ocr/model/paperbox.om","/sharefs/ocr/model");
+                sleep(5);
+		system("reboot");
+            }
+            else
+            {
+                PRINT_ERR("Failed to process the upgrade package\n");
+            }
+        }
+        else
+        {
+            PRINT_ERR("Received data package error, received: %d, expected: %d\n", recvLen, bodyLen);
+        }
+    }
+
+ERROR_EXIT:
+// 在 ERROR_EXIT 标签前修改释放方式
+    if (data)
+    {
+#ifdef MODULE_SUPPORT_UPGRADE_OUT
+        // 共享内存不需要释放
+#else
+        free(data);
+#endif
+        data = NULL;
+    }
+    //    if (data)
+//    {
+//        free(data);
+//	data = NULL;  // 防止重复释放
+//    }
+//    netcam_sys_operation(NULL, (void *)SYSTEM_OPERATION_RESTART_APP);
+
+//    return HPE_RET_OUTOF_MEMORY;
+}
+
+static int qrbox_obb_upgrade_read_cb(HTTP_OPS* ops, void* arg)
+{
+        int data = 1;
+        char retData[12];
+        sprintf(retData,"%d",data);
+
+        //PRINT_INFO();
+        ops->set_body_ex(ops,(char*)retData,strlen(retData));
+        return HPE_RET_DISCONNECT;
+}
+
+static int qrbox_obb_upgrade_read(HTTP_OPS *ops, void *arg)
+{
+    char *data = NULL;
+    char *tag;
+    int bodyLen;
+    int fd;
+    int recvLen = 0;
+    printf("hxj test\n");
+    printf("hxj test\n");
+    printf("hxj test\n");
+    if (netcam_get_update_status() < 0)
+    {
+        PRINT_ERR("is updating..............\n");
+        return HPE_RET_OUTOF_MEMORY;
+    }
+
+    tag = (char *)ops->get_tag(ops, (char *)"Content-Length");
+    bodyLen = atoi(tag);
+
+    if (bodyLen <= 0 )
+    {
+        goto ERROR_EXIT;
+    }
+
+    printf("hxj test_qrbox\n");
+    printf("hxj test_qrbox\n");
+    printf("hxj test_qrbox\n");
+    fd = ops->get_connection_fd(ops);
+    if (fd > 0)
+    {
+        recvLen = 0;
+        data = update_recv_http_body(fd, bodyLen, &recvLen);
+        if (recvLen == bodyLen && data != NULL)
+        {
+          if (netcam_update_http_style(data, bodyLen, NULL) == 0)
+            {
+
+                printf("Upgrade package processed successfully\n");
+
+                if (rename("/sharefs/ocr/model/qrbox_obb.om", "/sharefs/ocr/model/qrbox_obb.om_bak") != 0)
+                {
+                    PRINT_ERR("Failed to rename/sharefs/ocr/model/qrbox_obb.om to /sharefs/ocr/model/qrbox_obb.om_bak\n");
+                }
+
+                int file_fd = open("/sharefs/ocr/model/qrbox_obb.om", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (file_fd < 0)
+                {
+                    PRINT_ERR("Failed to open /sharefs/ocr/model/qrbox_obb.om for writing\n");
+                    goto ERROR_EXIT;
+                }
+
+                ssize_t written_len = write(file_fd, upgrade_data, recvLen);
+                if (written_len != recvLen)
+                {
+                    PRINT_ERR("Failed to write all data to /sharefs/ocr/model/qrbox_obb.om\n");
+                    close(file_fd);
+                    goto ERROR_EXIT;
+                }
+
+                close(file_fd);
+                printf("Data successfully saved to /sharefs/ocr/model/qrbox_obb.om\n");
+                decompress_tar("/sharefs/ocr/model/qrbox_obb.om","/sharefs/ocr/model");
+                sleep(5);
+                system("reboot");
+
+            }
+            else
+            {
+                PRINT_ERR("Failed to process the upgrade package\n");
+            }
+        }
+        else
+        {
+            PRINT_ERR("Received data package error, received: %d, expected: %d\n", recvLen, bodyLen);
+        }
+    }
+
+ERROR_EXIT:
+// 在 ERROR_EXIT 标签前修改释放方式
+    if (data)
+    {
+#ifdef MODULE_SUPPORT_UPGRADE_OUT
+        // 共享内存不需要释放
+#else
+        free(data);
+#endif
+        data = NULL;
+    }
+}
+//*****************************//
 
 static int device_upgrade_cb(HTTP_OPS* ops, void* arg)
 {
@@ -3006,6 +3228,10 @@ void netcam_http_web_init()
 	http_mini_add_read_callback("/web_upgrade", web_upgrade_read);
 	http_mini_add_cgi_callback("/ai_upgrade", ai_upgrade_read_cb, METHOD_PUT|METHOD_POST, (void *)0);
 	http_mini_add_read_callback("/ai_upgrade", ai_upgrade_read);
+	http_mini_add_cgi_callback("/paperbox_upgrade", paperbox_upgrade_read_cb, METHOD_PUT|METHOD_POST, (void *)0);
+    	http_mini_add_read_callback("/paperbox_upgrade", paperbox_upgrade_read);
+    	http_mini_add_cgi_callback("/qrbox_obb_upgrade", qrbox_obb_upgrade_read_cb, METHOD_PUT|METHOD_POST, (void *)0);
+    	http_mini_add_read_callback("/qrbox_obb_upgrade", qrbox_obb_upgrade_read);
 	http_mini_add_cgi_callback("/check_login",web_check_login,METHOD_GET|METHOD_PUT, (void *)0);
 	//the format of http body is updating package
 	http_mini_add_cgi_callback("/device_upgrade", device_upgrade_cb, METHOD_PUT|METHOD_POST, (void *)0);
