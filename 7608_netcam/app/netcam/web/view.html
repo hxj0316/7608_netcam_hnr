@@ -122,15 +122,15 @@
 				<label id="lb_malv" style="float:left; height:20px; margin-top:5px; margin-left:10px"></label>
 				<label id="lb_fenbilv" style="float:right; margin-top:5px; margin-right:10px;"></label>
 			</div>
-<div id="Video" style="width: 100%; height: 100%; background-color: black;">
-  <!-- iframe 播放器内嵌 -->
-  <iframe
-    id="webrtcIframe"
-    src="http://192.168.2.99:8889/stream01"
-    style="width: 100%; height: 100%; border: none;"
-    allow="camera; microphone; autoplay; fullscreen"
-  ></iframe>
-</div>
+		<div id="Video" style="width: 100%; height: 100%; background-color: black;">
+  		<!-- iframe 播放器内嵌 -->
+  			<iframe
+    			id="webrtcIframe"
+    			src="http://192.168.2.99:8889/stream01"
+    			style="width: 100%; height: 100%; border: none;"
+    			allow="camera; microphone; autoplay; fullscreen"
+  			></iframe>
+		</div>
 
 			<div id="View_object" style=" height:515px; margin-left:4px; margin-top:0px;">
 			</div>
@@ -486,25 +486,36 @@
 
 					</tr>
 				</table>
-<!-- Zoom & Focus 控制按钮（三行，不超出边界） -->
-<table width="140px" style="margin-left:auto; margin-right:auto; margin-top:8px; text-align:center;">
+<!-- Zoom & Focus & Stream 控制按钮（4 行布局，不超出边界） -->
+<table width="140px" style="margin:0 auto; margin-top:8px; text-align:center;">
+    <!-- 第一行：变倍 -->
     <tr>
         <td><button class="ctrl-btn" id="zoom_in_btn">变倍+</button></td>
         <td><button class="ctrl-btn" id="zoom_out_btn">变倍-</button></td>
     </tr>
+
+    <!-- 第二行：自动对焦 -->
     <tr>
         <td colspan="2">
             <button class="ctrl-btn full-btn" id="focus_toggle_btn" onclick="toggle_focus()">自动对焦</button>
         </td>
     </tr>
+
+    <!-- 第三行：手动变焦 -->
     <tr>
         <td><button class="ctrl-btn" onclick="focus_control('in')">变焦+</button></td>
         <td><button class="ctrl-btn" onclick="focus_control('out')">变焦-</button></td>
     </tr>
+
+    <!-- 第四行：视频流开关 -->
+    <tr>
+        <td colspan="2">
+            <button class="ctrl-btn full-btn" id="stream_toggle_btn" onclick="toggle_stream()">开启视频</button>
+        </td>
+    </tr>
 </table>
 
 <style>
-    /* 统一按钮样式 */
     .ctrl-btn {
         width: 60px;
         height: 28px;
@@ -515,15 +526,11 @@
         font-size: 13px;
         cursor: pointer;
     }
-    .ctrl-btn:hover {
-        background: #e6e6e6;
-    }
-    .ctrl-btn:active {
-        background: #dcdcdc;
-    }
-    /* 自动对焦按钮独占整行 */
+    .ctrl-btn:hover { background: #e6e6e6; }
+    .ctrl-btn:active { background: #dcdcdc; }
+
     .full-btn {
-        width: 124px; /* 140px 表格宽度 - 两边 margin */
+        width: 124px; /* 140px - margin */
     }
 </style>
 
@@ -531,55 +538,44 @@
 
 <script>
     let zoomInterval = null;
-    let zoomActive = false; // Zoom 按钮的控制状态
+    let zoomActive = false;
 
-    // ========== Zoom 按压控制 ==========
-
-    // 按下按钮时开始变倍操作
+    // ===== Zoom 持续发送 =====
     function start_zoom(action) {
-        if (zoomActive) return; // 如果已经开始操作，忽略
+        if (zoomActive) return;
         zoomActive = true;
 
-        // 开始持续的 zoom 操作
         function sendZoom() {
-            if (!zoomActive) return;  // 松开按钮时停止
+            if (!zoomActive) return;
 
             fetch(`/zoom_${action}`, { method: "GET" })
                 .then(res => res.text())
-                .then(txt => {
-                    document.getElementById("result").innerText = txt;
-                })
+                .then(txt => document.getElementById("result").innerText = txt)
                 .catch(err => {
                     console.error("Zoom error:", err);
                     document.getElementById("result").innerText = "Zoom Error!";
                 });
 
-            // 递归调度下次请求
-            zoomInterval = setTimeout(sendZoom, 150); // 每 150ms 发送一次请求
+            zoomInterval = setTimeout(sendZoom, 150);
         }
-
-        sendZoom();  // 初始调用一次
+        sendZoom();
     }
 
-    // 松开按钮时，发送 zoom_stop 请求并停止操作
     function stop_zoom() {
-        zoomActive = false; // 标记停止
-        clearTimeout(zoomInterval); // 清除定时器
-        zoomInterval = null; // 重置定时器
+        zoomActive = false;
+        clearTimeout(zoomInterval);
+        zoomInterval = null;
 
-        // 发送 zoom_stop 请求
         fetch("/zoom_stop", { method: "GET" })
             .then(res => res.text())
-            .then(txt => {
-                document.getElementById("result").innerText = txt;
-            })
+            .then(txt => document.getElementById("result").innerText = txt)
             .catch(err => {
                 console.error("Zoom stop error:", err);
                 document.getElementById("result").innerText = "Zoom Stop Error!";
             });
     }
 
-    // 绑定事件：按下开始变倍，松开停止
+    // 绑定 zoom 按钮事件
     document.getElementById("zoom_in_btn").addEventListener("mousedown", () => start_zoom("in"));
     document.getElementById("zoom_in_btn").addEventListener("mouseup", stop_zoom);
     document.getElementById("zoom_in_btn").addEventListener("mouseleave", stop_zoom);
@@ -588,49 +584,63 @@
     document.getElementById("zoom_out_btn").addEventListener("mouseup", stop_zoom);
     document.getElementById("zoom_out_btn").addEventListener("mouseleave", stop_zoom);
 
-    // ========== Focus 自动对焦切换 ==========
-
+    // ===== 自动对焦切换 =====
     let isFocusing = false;
 
     function toggle_focus() {
         let btn = document.getElementById("focus_toggle_btn");
+
         if (!isFocusing) {
-            // 开启自动对焦
             fetch("/focus_auto", { method: "GET" })
                 .then(res => res.text())
-                .then(txt => {
-                    document.getElementById("result").innerText = txt;
-                });
+                .then(txt => document.getElementById("result").innerText = txt);
+
             btn.innerText = "停止对焦";
             isFocusing = true;
         } else {
-            // 停止对焦
-            fetch("/focus_stop", { method: "GET" })  // 你可以在后端实现 /focus_stop
+            fetch("/focus_stop", { method: "GET" })
                 .then(res => res.text())
-                .then(txt => {
-                    document.getElementById("result").innerText = txt;
-                });
+                .then(txt => document.getElementById("result").innerText = txt);
+
             btn.innerText = "自动对焦";
             isFocusing = false;
         }
     }
 
-    // ========== Focus 手动控制 ==========
-
+    // ===== 手动对焦 =====
     function focus_control(action) {
-        let url = `/focus_${action}`;
-        fetch(url, { method: "GET" })
+        fetch(`/focus_${action}`, { method: "GET" })
             .then(res => res.text())
-            .then(txt => {
-                document.getElementById("result").innerText = txt;
-            })
+            .then(txt => document.getElementById("result").innerText = txt)
             .catch(err => {
                 console.error("Focus error:", err);
                 document.getElementById("result").innerText = "Focus Error!";
             });
     }
-</script>
 
+    // ===== 视频流开关 =====
+    let isStreaming = false;
+
+    function toggle_stream() {
+        let btn = document.getElementById("stream_toggle_btn");
+
+        if (!isStreaming) {
+            fetch("/web_stream_start", { method: "GET" })
+                .then(res => res.text())
+                .then(txt => document.getElementById("result").innerText = txt);
+
+            btn.innerText = "停止视频";
+            isStreaming = true;
+        } else {
+            fetch("/web_stream_stop", { method: "GET" })
+                .then(res => res.text())
+                .then(txt => document.getElementById("result").innerText = txt);
+
+            btn.innerText = "开启视频";
+            isStreaming = false;
+        }
+    }
+</script>
 			</div>
 		</div>
 	</div>
@@ -2951,296 +2961,461 @@
                   </div>
                 </div>
 				<div class="TabbedPanelsContent">
-				<style>
-					.upload-container {
-						margin: 20px;
-					}
-					.upload-section {
-						margin-bottom: 30px;
-						padding: 15px;
-						border: 1px solid #e0e0e0;
-						border-radius: 5px;
-					}
-					.upload-section h3 {
-						margin-top: 0;
-						color: #333;
-					}
-					.upload-btn {
-						display: inline-block;
-						padding: 8px 16px;
-						font-size: 14px;
-						color: #fff;
-						background-color: #409EFF;
-						border: none;
-						border-radius: 4px;
-						cursor: pointer;
-						transition: background-color 0.3s;
-					}
-					.upload-btn:hover {
-						background-color: #66b1ff;
-					}
-					.progress-container {
-						margin-top: 15px;
-					}
-					.progress-item {
-						margin: 10px 0;
-						font-size: 13px;
-					}
-					.file-info {
-						display: flex;
-						justify-content: space-between;
-						margin-bottom: 5px;
-					}
-					.file-name {
-						overflow: hidden;
-						text-overflow: ellipsis;
-						white-space: nowrap;
-					}
-					.progress-bar {
-						height: 8px;
-						background-color: #e5e5e5;
-						border-radius: 4px;
-						overflow: hidden;
-					}
-					.progress-bar-fill {
-						height: 100%;
-						background-color: #67c23a;
-						width: 0%;
-						transition: width 0.3s;
-					}
-					.status {
-						margin-top: 5px;
-						font-size: 12px;
-						color: #666;
-					}
-					.success {
-						color: #67c23a;
-					}
-					.error {
-						color: #f56c6c;
-					}
-				</style>
-				<div class="upload-container">
-					<!-- 板端固件更新区域 -->
-					<div class="upload-section">
-						<h3>板端固件更新</h3>
-						<input type="file" id="boardFirmwareInput" class="fileInput" style="display:none" />
-						<button class="upload-btn" id="boardFirmwareBtn">选择并上传文件</button>
-						<div class="progress-container" id="boardFirmwareProgress"></div>
+					<style>
+						.upload-container {
+							margin: 20px;
+						}
+						.upload-section {
+							margin-bottom: 30px;
+							padding: 15px;
+							border: 1px solid #e0e0e0;
+							border-radius: 5px;
+						}
+						.upload-section h3 {
+							margin-top: 0;
+							color: #333;
+						}
+						.upload-btn {
+							display: inline-block;
+							padding: 8px 16px;
+							font-size: 14px;
+							color: #fff;
+							background-color: #409EFF;
+							border: none;
+							border-radius: 4px;
+							cursor: pointer;
+							transition: background-color 0.3s;
+						}
+						.upload-btn:hover {
+							background-color: #66b1ff;
+						}
+						.progress-container {
+							margin-top: 15px;
+						}
+						.progress-item {
+							margin: 10px 0;
+							font-size: 13px;
+						}
+						.file-info {
+							display: flex;
+							justify-content: space-between;
+							margin-bottom: 5px;
+						}
+						.file-name {
+							overflow: hidden;
+							text-overflow: ellipsis;
+							white-space: nowrap;
+						}
+						.progress-bar {
+							height: 8px;
+							background-color: #e5e5e5;
+							border-radius: 4px;
+							overflow: hidden;
+						}
+						.progress-bar-fill {
+							height: 100%;
+							background-color: #67c23a;
+							width: 0%;
+							transition: width 0.3s;
+						}
+						.status {
+							margin-top: 5px;
+							font-size: 12px;
+							color: #666;
+						}
+						.success {
+							color: #67c23a;
+						}
+						.error {
+							color: #f56c6c;
+						}
+						/* 新增成功提示样式 */
+						.success-message {
+							margin-top: 10px;
+							padding: 8px 12px;
+							background-color: #f0f9ff;
+							border: 1px solid #91d5ff;
+							border-radius: 4px;
+							color: #1890ff;
+							font-size: 13px;
+							display: none;
+						}
+						.success-message.show {
+							display: block;
+							animation: fadeIn 0.5s;
+						}
+						@keyframes fadeIn {
+							from { opacity: 0; }
+							to { opacity: 1; }
+						}
+					</style>
+				
+					<div class="upload-container">
+						<!-- 板端固件更新区域 -->
+						<div class="upload-section">
+							<h3>板端固件更新</h3>
+							<input type="file" id="boardFirmwareInput" class="fileInput" style="display:none" />
+							<button class="upload-btn" id="boardFirmwareBtn">选择并上传文件</button>
+							<div class="success-message" id="boardFirmwareSuccess">板端固件上传成功！</div>
+							<div class="progress-container" id="boardFirmwareProgress"></div>
+						</div>
+				
+						<!-- OCR文件更新区域 -->
+						<div class="upload-section">
+							<h3>OCR文件更新</h3>
+							<input type="file" id="ocrFileInput" class="fileInput" style="display:none" />
+							<button class="upload-btn" id="ocrFileBtn">选择并上传文件</button>
+							<div class="success-message" id="ocrFileSuccess">OCR文件上传成功！</div>
+							<div class="progress-container" id="ocrFileProgress"></div>
+						</div>
+				
+						<!-- 模型固件更新区域 -->
+						<div class="upload-section">
+							<h3>模型固件更新</h3>
+							<div class="model-update-container">
+								<div class="model-update-item">
+									<input type="file" id="paperboxFirmwareInput" class="fileInput" style="display:none" />
+									<button class="upload-btn" id="paperboxFirmwareBtn">选择并上传 Paperbox 模型</button>
+									<div class="success-message" id="paperboxFirmwareSuccess">Paperbox 模型上传成功！</div>
+									<div class="progress-container" id="paperboxFirmwareProgress"></div>
+								</div>
+								<div class="model-update-item">
+									<input type="file" id="qrboxFirmwareInput" class="fileInput" style="display:none" />
+									<button class="upload-btn" id="qrboxFirmwareBtn">选择并上传 QRbox 模型</button>
+									<div class="success-message" id="qrboxFirmwareSuccess">QRbox 模型上传成功！</div>
+									<div class="progress-container" id="qrboxFirmwareProgress"></div>
+								</div>
+							</div>
+						</div>
+				
+						<style>
+							.model-update-container {
+								display: flex;
+								justify-content: space-between;
+							}
+							.model-update-item {
+								width: 48%;
+								box-sizing: border-box;
+							}
+						</style>
 					</div>
-			
-					<!-- OCR文件更新区域 -->
-					<div class="upload-section">
-						<h3>OCR文件更新</h3>
-						<input type="file" id="ocrFileInput" class="fileInput" style="display:none" />
-						<button class="upload-btn" id="ocrFileBtn">选择并上传文件</button>
-						<div class="progress-container" id="ocrFileProgress"></div>
-					</div>
-				</div>
-			
-				<script>
-					// 上传函数
-					function uploadFile(file, uploadUrl, progressContainer, callbacks) {
-						var xhr = new XMLHttpRequest();
-						var formData = new FormData();
-						formData.append("file", file);
-			
-						// 创建进度显示元素
-						var item = document.createElement("div");
-						item.className = "progress-item";
-						
-						var fileInfo = document.createElement("div");
-						fileInfo.className = "file-info";
-						
-						var fileName = document.createElement("div");
-						fileName.className = "file-name";
-						fileName.textContent = file.name;
-						fileInfo.appendChild(fileName);
-						
-						var fileSize = document.createElement("div");
-						fileSize.className = "file-size";
-						fileSize.textContent = formatFileSize(file.size);
-						fileInfo.appendChild(fileSize);
-						
-						item.appendChild(fileInfo);
-						
-						var progressBar = document.createElement("div");
-						progressBar.className = "progress-bar";
-						
-						var progressFill = document.createElement("div");
-						progressFill.className = "progress-bar-fill";
-						progressBar.appendChild(progressFill);
-						
-						item.appendChild(progressBar);
-						
-						var status = document.createElement("div");
-						status.className = "status";
-						status.textContent = "等待上传...";
-						item.appendChild(status);
-						
-						progressContainer.appendChild(item);
-			
-						// 上传进度事件
-						xhr.upload.addEventListener("progress", function(e) {
-							if (e.lengthComputable) {
-								var percent = Math.round((e.loaded / e.total) * 100);
-								progressFill.style.width = percent + "%";
-								status.textContent = "上传中: " + percent + "%";
-								
-								if (callbacks.upload_progress_handler) {
-									callbacks.upload_progress_handler(file, e.loaded, e.total);
-								}
-							}
-						});
-			
-						// 上传完成事件
-						xhr.addEventListener("load", function() {
-							if (xhr.status === 200) {
-								progressFill.style.backgroundColor = "#67c23a";
-								status.textContent = "上传成功";
-								status.className = "status success";
-								
-								if (callbacks.upload_success_handler) {
-									callbacks.upload_success_handler(file, xhr.responseText);
-								}
-							} else {
-								progressFill.style.backgroundColor = "#f56c6c";
-								status.textContent = "上传失败: " + xhr.statusText;
-								status.className = "status error";
-								
-								if (callbacks.upload_error_handler) {
-									callbacks.upload_error_handler(file, xhr.statusText);
-								}
-							}
+				
+					<script>
+						// 上传函数
+						function uploadFile(file, uploadUrl, progressContainer, successElement, callbacks) {
+							var xhr = new XMLHttpRequest();
+							var formData = new FormData();
+							formData.append("file", file);
+				
+							var item = document.createElement("div");
+							item.className = "progress-item";
 							
-							if (callbacks.upload_complete_handler) {
-								callbacks.upload_complete_handler(file);
-							}
-						});
-			
-						// 上传错误事件
-						xhr.addEventListener("error", function() {
-							progressFill.style.backgroundColor = "#f56c6c";
-							status.textContent = "上传出错";
-							status.className = "status error";
+							var fileInfo = document.createElement("div");
+							fileInfo.className = "file-info";
 							
-							if (callbacks.upload_error_handler) {
-								callbacks.upload_error_handler(file, "网络错误");
-							}
+							var fileName = document.createElement("div");
+							fileName.className = "file-name";
+							fileName.textContent = file.name;
+							fileInfo.appendChild(fileName);
 							
-							if (callbacks.upload_complete_handler) {
-								callbacks.upload_complete_handler(file);
-							}
-						});
-			
-						// 开始上传
-						xhr.open("POST", uploadUrl, true);
-						xhr.send(formData);
-					}
-			
-					// 初始化上传器
-					function initUploader(options) {
-						// 板端固件上传
-						var boardInput = document.getElementById("boardFirmwareInput");
-						var boardBtn = document.getElementById("boardFirmwareBtn");
-						var boardProgress = document.getElementById("boardFirmwareProgress");
-						
-						boardBtn.addEventListener("click", function() {
-							boardInput.click();
-						});
-						
-						boardInput.addEventListener("change", function() {
-							if (this.files.length > 0) {
-								handleFileSelection(this.files, "/web_upgrade", boardProgress, options);
-							}
-							this.value = "";
-						});
-			
-						// OCR文件上传
-						var ocrInput = document.getElementById("ocrFileInput");
-						var ocrBtn = document.getElementById("ocrFileBtn");
-						var ocrProgress = document.getElementById("ocrFileProgress");
-						
-						ocrBtn.addEventListener("click", function() {
-							ocrInput.click();
-						});
-						
-						ocrInput.addEventListener("change", function() {
-							if (this.files.length > 0) {
-								handleFileSelection(this.files, "/ai_upgrade", ocrProgress, options);
-							}
-							this.value = "";
-						});
-					}
-			
-					// 处理文件选择
-					function handleFileSelection(files, uploadUrl, progressContainer, options) {
-						for (var i = 0; i < files.length; i++) {
-							var file = files[i];
+							var fileSize = document.createElement("div");
+							fileSize.className = "file-size";
+							fileSize.textContent = formatFileSize(file.size);
+							fileInfo.appendChild(fileSize);
 							
-							// 文件大小限制检查
-							if (options.file_size_limit > 0 && file.size > options.file_size_limit * 1024 * 1024) {
-								if (options.file_queue_error_handler) {
-									options.file_queue_error_handler(file, "文件大小超过限制");
-								}
-								continue;
-							}
+							item.appendChild(fileInfo);
 							
-							// 文件类型检查
-							if (options.allowed_file_types && options.allowed_file_types.length > 0) {
-								var fileExt = file.name.split('.').pop().toLowerCase();
-								if (!options.allowed_file_types.includes(fileExt)) {
-									if (options.file_queue_error_handler) {
-										options.file_queue_error_handler(file, "不支持的文件类型");
+							var progressBar = document.createElement("div");
+							progressBar.className = "progress-bar";
+							
+							var progressFill = document.createElement("div");
+							progressFill.className = "progress-bar-fill";
+							progressBar.appendChild(progressFill);
+							
+							item.appendChild(progressBar);
+							
+							var status = document.createElement("div");
+							status.className = "status";
+							status.textContent = "等待上传...";
+							item.appendChild(status);
+							
+							progressContainer.appendChild(item);
+				
+							var isCompleted = false;
+				
+							xhr.upload.addEventListener("progress", function(e) {
+								if (e.lengthComputable) {
+									var percent = Math.round((e.loaded / e.total) * 100);
+									progressFill.style.width = percent + "%";
+									status.textContent = "上传中: " + percent + "%";
+				
+									if (percent === 100 && !isCompleted) {
+										isCompleted = true;
+										progressFill.style.backgroundColor = "#67c23a";
+										status.textContent = "上传成功";
+										status.className = "status success";
+				
+										if (successElement) {
+											successElement.textContent = file.name + " - 上传成功！";
+											successElement.classList.add("show");
+											setTimeout(function() {
+												successElement.classList.remove("show");
+											}, 5000);
+										}
+				
+										if (callbacks.upload_success_handler) {
+											callbacks.upload_success_handler(file, "上传完成");
+										}
+				
+										if (callbacks.upload_complete_handler) {
+											callbacks.upload_complete_handler(file);
+										}
 									}
-									continue;
+									if (callbacks.upload_progress_handler) {
+										callbacks.upload_progress_handler(file, e.loaded, e.total);
+									}
 								}
-							}
-							
-							if (options.upload_start_handler) {
-								options.upload_start_handler(file);
-							}
-							
-							uploadFile(file, uploadUrl, progressContainer, options);
-						}
+							});
+				
+							xhr.addEventListener("load", function() {
+								if (isCompleted) return;
+				
+								if (xhr.status === 200) {
+									if (!isCompleted) {
+										isCompleted = true;
+										progressFill.style.backgroundColor = "#67c23a";
+										status.textContent = "上传成功";
+										status.className = "status success";
+				
+										if (successElement) {
+											successElement.textContent = file.name + " - 上传成功！";
+											successElement.classList.add("show");
+											setTimeout(function() {
+												successElement.classList.remove("show");
+											}, 5000);
+										}
+				
+										if (callbacks.upload_success_handler) {
+											callbacks.upload_success_handler(file, xhr.responseText);
+										}
+									}
+								} else {
+									progressFill.style.backgroundColor = "#f56c6c";
+									status.textContent = "上传失败: " + xhr.statusText;
+									status.className = "status error";
+									if (successElement) successElement.classList.remove("show");
+									if (callbacks.upload_error_handler) {
+										callbacks.upload_error_handler(file, xhr.statusText);
+									}
+								}
+								if (callbacks.upload_complete_handler) {
+									callbacks.upload_complete_handler(file);
+								}
+							});
+				
+							xhr.addEventListener("error", function() {
+								if (isCompleted) return;
+				
+								progressFill.style.backgroundColor = "#f56c6c";
+								status.textContent = "上传出错";
+								status.className = "status error";
+								if (successElement) successElement.classList.remove("show");
+								if (callbacks.upload_error_handler) {
+									callbacks.upload_error_handler(file, "网络错误");
+								}
+								if (callbacks.upload_complete_handler) {
+									callbacks.upload_complete_handler(file);
+								}
+							});
+
+							// 开始上传
+			xhr.open("POST", uploadUrl, true);
+			xhr.send(formData);
+		}
+
+		// 文件名校验函数
+		function validateFileName(file, fileType) {
+			let valid = false;
+			switch (fileType) {
+				case 'boardFirmware':
+					valid = file.name.toLowerCase() === 'netcam';
+					break;
+				case 'ocrFile':
+					valid = file.name.toLowerCase() === 'eac_ocr';
+					break;
+				case 'paperboxFirmware':
+					valid = file.name.toLowerCase() === 'paperbox.om.tar';
+					break;
+				case 'qrboxFirmware':
+					valid = file.name.toLowerCase() === 'qrbox_obb.om.tar';
+					break;
+				default:
+					valid = false;
+			}
+			return valid;
+		}
+
+		// 初始化上传器
+		function initUploader(options) {
+			// 板端固件上传
+			var boardInput = document.getElementById("boardFirmwareInput");
+			var boardBtn = document.getElementById("boardFirmwareBtn");
+			var boardProgress = document.getElementById("boardFirmwareProgress");
+			var boardSuccess = document.getElementById("boardFirmwareSuccess");
+
+			boardBtn.addEventListener("click", function() {
+				boardInput.click();
+			});
+
+			boardInput.addEventListener("change", function() {
+				if (this.files.length > 0) {
+					if (!validateFileName(this.files[0], 'boardFirmware')) {
+						alert("文件名不符合要求，板端固件文件必须命名为 'netcam'");
+						return;
 					}
-			
-					// 格式化文件大小
-					function formatFileSize(bytes) {
-						if (bytes === 0) return '0 B';
-						var k = 1024;
-						var sizes = ['B', 'KB', 'MB', 'GB'];
-						var i = Math.floor(Math.log(bytes) / Math.log(k));
-						return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+					handleFileSelection(this.files, "/web_upgrade", boardProgress, boardSuccess, options);
+				}
+				this.value = "";
+			});
+
+			// OCR文件上传
+			var ocrInput = document.getElementById("ocrFileInput");
+			var ocrBtn = document.getElementById("ocrFileBtn");
+			var ocrProgress = document.getElementById("ocrFileProgress");
+			var ocrSuccess = document.getElementById("ocrFileSuccess");
+
+			ocrBtn.addEventListener("click", function() {
+				ocrInput.click();
+			});
+
+			ocrInput.addEventListener("change", function() {
+				if (this.files.length > 0) {
+					if (!validateFileName(this.files[0], 'ocrFile')) {
+						alert("文件名不符合要求，OCR文件必须命名为 'eac_ocr'");
+						return;
 					}
-			
-					// 初始化上传器配置
-					initUploader({
-						file_size_limit: 16, // 16MB
-						//allowed_file_types: ["bin", "img", "txt", "pdf", "zip"], // 允许的文件类型
-						
-						file_queue_error_handler: function(file, error) {
-							alert("错误: " + file.name + " - " + error);
-						},
-						upload_start_handler: function(file) {
-							console.log("开始上传:", file.name);
-						},
-						upload_progress_handler: function(file, loaded, total) {
-							console.log("上传进度:", file.name, Math.round((loaded / total) * 100) + "%");
-						},
-						upload_success_handler: function(file, response) {
-							console.log("上传成功:", file.name, response);
-						},
-						upload_error_handler: function(file, error) {
-							console.error("上传失败:", file.name, error);
-						},
-						upload_complete_handler: function(file) {
-							console.log("上传完成:", file.name);
+					handleFileSelection(this.files, "/ai_upgrade", ocrProgress, ocrSuccess, options);
+				}
+				this.value = "";
+			});
+
+			// Paperbox模型上传
+			var paperboxInput = document.getElementById("paperboxFirmwareInput");
+			var paperboxBtn = document.getElementById("paperboxFirmwareBtn");
+			var paperboxProgress = document.getElementById("paperboxFirmwareProgress");
+			var paperboxSuccess = document.getElementById("paperboxFirmwareSuccess");
+
+			paperboxBtn.addEventListener("click", function() {
+				paperboxInput.click();
+			});
+
+			paperboxInput.addEventListener("change", function() {
+				if (this.files.length > 0) {
+					if (!validateFileName(this.files[0], 'paperboxFirmware')) {
+						alert("文件名不符合要求，Paperbox模型文件必须命名为 'paperbox.om.tar'");
+						return;
+					}
+					handleFileSelection(this.files, "/paperbox_upgrade", paperboxProgress, paperboxSuccess, options);
+				}
+				this.value = "";
+			});
+
+			// QRbox模型上传
+			var qrboxInput = document.getElementById("qrboxFirmwareInput");
+			var qrboxBtn = document.getElementById("qrboxFirmwareBtn");
+			var qrboxProgress = document.getElementById("qrboxFirmwareProgress");
+			var qrboxSuccess = document.getElementById("qrboxFirmwareSuccess");
+
+			qrboxBtn.addEventListener("click", function() {
+				qrboxInput.click();
+			});
+
+			qrboxInput.addEventListener("change", function() {
+				if (this.files.length > 0) {
+					if (!validateFileName(this.files[0], 'qrboxFirmware')) {
+						alert("文件名不符合要求，QRbox模型文件必须命名为 'qrbox_obb.tar'");
+						return;
+					}
+					handleFileSelection(this.files, "/qrbox_obb_upgrade", qrboxProgress, qrboxSuccess, options);
+				}
+				this.value = "";
+			});
+		}
+
+		// 处理文件选择
+		function handleFileSelection(files, uploadUrl, progressContainer, successElement, options) {
+			for (var i = 0; i < files.length; i++) {
+				var file = files[i];
+
+				// 文件大小限制检查
+				if (options.file_size_limit > 0 && file.size > options.file_size_limit * 1024 * 1024) {
+					if (options.file_queue_error_handler) {
+						options.file_queue_error_handler(file, "文件大小超过限制");
+					}
+					continue;
+				}
+
+				// 文件类型检查
+				if (options.allowed_file_types && options.allowed_file_types.length > 0) {
+					var fileExt = file.name.split('.').pop().toLowerCase();
+					if (!options.allowed_file_types.includes(fileExt)) {
+						if (options.file_queue_error_handler) {
+							options.file_queue_error_handler(file, "不支持的文件类型");
 						}
-					});
-				</script>
-				</div>
-						
+						continue;
+					}
+				}
+
+				if (options.upload_start_handler) {
+					options.upload_start_handler(file);
+				}
+
+				uploadFile(file, uploadUrl, progressContainer, successElement, options);
+			}
+		}
+
+		// 格式化文件大小
+		function formatFileSize(bytes) {
+			if (bytes === 0) return '0 B';
+			var k = 1024;
+			var sizes = ['B', 'KB', 'MB', 'GB'];
+			var i = Math.floor(Math.log(bytes) / Math.log(k));
+			return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+		}
+
+		// 初始化上传器配置
+		initUploader({
+			// file_size_limit: 50, // 16MB
+			// allowed_file_types: ["bin", "img", "txt", "pdf", "zip","tar","om"], // 允许的文件类型
+
+			file_queue_error_handler: function(file, error) {
+				alert("错误: " + file.name + " - " + error);
+			},
+			upload_start_handler: function(file) {
+				console.log("开始上传:", file.name);
+			},
+			upload_progress_handler: function(file, loaded, total) {
+				var percent = Math.round((loaded / total) * 100);
+				console.log("上传进度:", file.name, percent + "%");
+
+				// 进度100%时记录日志
+				if (percent === 100) {
+					console.log("文件上传完成，流程结束:", file.name);
+				}
+			},
+			upload_success_handler: function(file, response) {
+				console.log("上传成功:", file.name);
+			},
+			upload_error_handler: function(file, error) {
+				console.error("上传失败:", file.name, error);
+			},
+			upload_complete_handler: function(file) {
+				console.log("上传流程完成:", file.name);
+			}
+		});
+	</script>
+</div>
+
                 <div class="TabbedPanelsContent">
                     <div class="content_left">
                         <button id="btn_rebbot" onclick="sys_setting_reboot()">

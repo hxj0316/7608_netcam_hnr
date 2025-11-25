@@ -2536,6 +2536,26 @@ static int web_focus_stop(HTTP_OPS* ops, void* arg) {
     return 0;
 }
 
+static int web_stream_start(HTTP_OPS* ops, void* arg) {
+    // 执行启动脚本
+    int ret = system("/sharefs/mediamtx_control.sh start");  // 替换为实际的脚本路径
+    if (ret == 0) {
+        printf("mediamtx 启动成功\n");
+    } else {
+        printf("mediamtx 启动失败，返回值：%d\n", ret);
+    }
+
+    return 0;
+}
+
+static int web_stream_stop(HTTP_OPS* ops, void* arg) {
+    // 执行停止脚本
+    system("/sharefs/mediamtx_control.sh stop");  // 替换为实际的脚本路径
+        printf("mediamtx 停止成功\n");
+
+    return 0;
+}
+
 static int web_snapshotjpg(HTTP_OPS* ops, void* arg)
 {
 	netcam_video_snapshot(GK_ENC_SNAPSHOT_SIZE_MAX, GK_ENC_SNAPSHOT_SIZE_MAX, "/tmp/web_snapshot2.jpg", GK_ENC_SNAPSHOT_QUALITY_MEDIUM);
@@ -3220,6 +3240,8 @@ void netcam_http_web_init()
 	http_mini_add_cgi_callback("/focus_out", web_focus_out, METHOD_PUT|METHOD_GET, (void *)0);
 	http_mini_add_cgi_callback("/focus_auto", web_focus_auto, METHOD_PUT|METHOD_GET, (void *)0);
 	http_mini_add_cgi_callback("/focus_stop", web_focus_stop, METHOD_PUT|METHOD_GET, (void *)0);
+	http_mini_add_cgi_callback("/web_stream_start", web_stream_start, METHOD_PUT|METHOD_GET, (void *)0);
+        http_mini_add_cgi_callback("/web_stream_stop", web_stream_stop, METHOD_PUT|METHOD_GET, (void *)0);
 	http_mini_add_cgi_callback("/snapshotjpg", web_snapshotjpg, METHOD_GET, (void *)0);
 	http_mini_add_cgi_callback("/language",web_language,METHOD_PUT|METHOD_GET,(void *)0);
 	//the format of http body is mail style updating package, it add mail information.
