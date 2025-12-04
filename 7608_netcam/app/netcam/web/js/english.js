@@ -6,6 +6,7 @@ var str_logout='Logout';
 
 var str_preview_now='Preview';
 var str_menu_setting='System';
+var str_OCR='OCR';
 var str_stream_select='Stream';
 var str_view_reset='reset';
 //码流切换

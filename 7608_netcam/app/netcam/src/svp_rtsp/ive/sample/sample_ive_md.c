@@ -74,7 +74,7 @@ static td_bool g_stop_signal = TD_FALSE;
 static pthread_t g_md_thread;
 static ot_sample_ivs_md_info g_md_info;
 // static ot_sample_svp_switch g_md_switch = {TD_FALSE, TD_TRUE};
-static ot_sample_svp_switch g_md_switch = {TD_TRUE, TD_FALSE};
+static ot_sample_svp_switch g_md_switch = {TD_TRUE, TD_TRUE};
 static sample_vi_cfg g_vi_config;
 static ot_sample_src_dst_size g_src_dst;
 

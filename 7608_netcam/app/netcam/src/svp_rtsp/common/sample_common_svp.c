@@ -664,6 +664,13 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
     hi_pic_size pic_type[OT_VPSS_CHN_NUM];
     sample_vo_cfg vo_cfg;
 
+    hi_u32 i;
+    ot_vpss_grp vpss_grp[1] = {0};
+    const hi_vpss_chn vpss_chn = 0;
+    const hi_vo_layer vo_layer = 0;
+    hi_vo_chn vo_chn[4] = {0, 1, 2, 3};     /* 4: max chn num, 0/1/2/3 chn id */
+    const hi_u32 grp_num = 1;
+
     const td_s32 vpss_grp_cnt = 1;
     td_s32 ret = TD_FAILURE;
     sample_sns_type sns_type = OV_OS08B10_MIPI_8M_30FPS_12BIT;
@@ -702,6 +709,10 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
 
     /* step 5: Set vi frame, Start Vo */
     ret = sample_common_svp_set_and_start_vo(switch_ptr, &vo_cfg);
+        for (i = 0; i < grp_num; i++) {
+        sample_comm_vpss_bind_vo(vpss_grp[i], vpss_chn, vo_layer, vo_chn[i]);
+    }
+
     // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_4, SAMPLE_SVP_ERR_LEVEL_ERROR,
     //                            "Error(%#x),sample_common_svp_set_vi_frame failed!\n", ret);
    

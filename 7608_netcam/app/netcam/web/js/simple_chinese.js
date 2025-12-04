@@ -6,6 +6,7 @@ var str_logout='注销';
 
 var str_preview_now='实时预览';
 var str_menu_setting='系统配置';
+var str_OCR='OCR设备';
 var str_stream_select='码流';
 var str_view_reset='重置';
 //码流切换
