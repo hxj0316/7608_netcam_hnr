@@ -42,7 +42,8 @@ static td_bool g_stop_signal = TD_FALSE;
 static pthread_t g_ive_thread = 0;
 static ot_sample_ive_od_info g_od_info;
 static ot_sample_svp_switch g_od_switch = { TD_FALSE, TD_TRUE };
-static sample_vi_cfg g_vi_config;
+//static sample_vi_cfg g_vi_config;
+static sample_vi_cfg g_vi_config[2]; // 【关键】改为包含2个元素的数组
 
 static td_void sample_ive_od_uninit(ot_sample_ive_od_info *od_info)
 {

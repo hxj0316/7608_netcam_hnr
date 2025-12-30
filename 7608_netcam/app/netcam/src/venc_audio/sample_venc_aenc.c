@@ -778,138 +778,269 @@ static int get_stream_from_one_channl(int s_LivevencChn, rtsp_demo_handle g_rtsp
 /******************************************************************************
  * funciton : get stream from each channels and save them
  ******************************************************************************/
+//td_void *VENC_GetVencStreamProc(td_void *p)
+//{
+//    td_s32 ret = 0;
+//    int i;
+//    printf("=========chn = %d\n", rtsp_handle[0].channel_num);
+//    printf("=========chn = %d\n", rtsp_handle[1].channel_num);
+//
+//    sdk_sys_thread_set_name("VENC_GetVencStreamProc");
+//    while (End_Rtsp)
+//    {
+//        
+//      //  for (i = 0; i < CHN_NUM_MAX; i++)
+//         for (i = 0; i < 1; i++)
+//        {
+//            ret = get_stream_from_one_channl(rtsp_handle[i].channel_num, rtsp_handle[i].g_rtsplive,
+//                                             rtsp_handle[i].session);
+//            if (ret < 0)
+//                continue;
+//        }
+//    }
+//    return NULL;
+//}
+
 td_void *VENC_GetVencStreamProc(td_void *p)
 {
     td_s32 ret = 0;
     int i;
-    printf("=========chn = %d\n", rtsp_handle[0].channel_num);
-    printf("=========chn = %d\n", rtsp_handle[1].channel_num);
+    /* 定义要处理的路数 */
+    const int process_chn_num = 2; 
+
+    printf("=========chn 0 = %d\n", rtsp_handle[0].channel_num);
+    printf("=========chn 1 = %d\n", rtsp_handle[1].channel_num);
 
     sdk_sys_thread_set_name("VENC_GetVencStreamProc");
+    
     while (End_Rtsp)
     {
-        
-      //  for (i = 0; i < CHN_NUM_MAX; i++)
-         for (i = 0; i < 1; i++)
+        /* 修改循环次数：从 0 到 1 (共2路) */
+        for (i = 0; i < process_chn_num; i++)
         {
+            /* 确保句柄有效 */
+            if (rtsp_handle[i].g_rtsplive == NULL || rtsp_handle[i].session == NULL) {
+                continue;
+            }
+
             ret = get_stream_from_one_channl(rtsp_handle[i].channel_num, rtsp_handle[i].g_rtsplive,
                                              rtsp_handle[i].session);
             if (ret < 0)
                 continue;
         }
+        /* 建议增加短暂休眠防止 CPU 占用过高，如果 get_stream 内部无阻塞 */
+       usleep(1000); 
     }
     return NULL;
 }
 
-static td_s32 sample_venc_normal_start_encode(ot_vpss_grp vpss_grp, sample_venc_vpss_chn *venc_vpss_chn)
+static td_s32 sample_venc_normal_start_encode(ot_vpss_grp vpss_grp_ignored, sample_venc_vpss_chn *venc_vpss_chn)
 {
     td_s32 ret;
     ot_venc_gop_mode gop_mode;
     ot_venc_gop_attr gop_attr;
     sample_comm_venc_chn_param chn_param[CHN_NUM_MAX] = {0};
-    sample_comm_venc_chn_param *h265_chn_param = TD_NULL;
-    sample_comm_venc_chn_param *h264_chn_param = TD_NULL;
+    sample_comm_venc_chn_param *venc_param = TD_NULL;
     int i;
+    /* 定义要使用的通道数量，这里是双路 */
+    const int start_chn_num = 2; 
 
-    if (get_gop_mode(&gop_mode) != TD_SUCCESS)
-    {
+    /* 1. 获取 GOP 属性 */
+    if (get_gop_mode(&gop_mode) != TD_SUCCESS) {
         return TD_FAILURE;
     }
-    if ((ret = sample_comm_venc_get_gop_attr(gop_mode, &gop_attr)) != TD_SUCCESS)
-    {
+    if ((ret = sample_comm_venc_get_gop_attr(gop_mode, &gop_attr)) != TD_SUCCESS) {
         sample_print("Venc Get GopAttr for %#x!\n", ret);
         return ret;
     }
 
+    /* 2. 设置 VENC 参数 (默认全设为 H265) */
     sample_venc_set_video_param(chn_param, gop_attr, CHN_NUM_MAX, TD_FALSE);
 
-      /* encode h.265 */
-
-    h265_chn_param = &(chn_param[0]);
-    if ((ret = sample_comm_venc_start(venc_vpss_chn->venc_chn[0], h265_chn_param)) != TD_SUCCESS)
+    /* 3. 循环启动两路 VENC 并绑定对应的 VPSS */
+    for (i = 0; i < start_chn_num; i++)
     {
-        sample_print("Venc Start failed for %#x!\n", ret);
-        return ret;
+        venc_param = &(chn_param[i]); // 使用第 i 路的配置
+
+        /* 3.1 启动 VENC 通道 */
+        // venc_chn[0] 对应 Sensor 0, venc_chn[1] 对应 Sensor 1
+        if ((ret = sample_comm_venc_start(venc_vpss_chn->venc_chn[i], venc_param)) != TD_SUCCESS)
+        {
+            sample_print("Venc Start chn %d failed for %#x!\n", i, ret);
+            return ret;
+        }
+
+        /* 3.2 绑定 VPSS -> VENC */
+        /* * 关键修改：
+         * 第 1 路 (i=0): 绑定 VPSS Grp 0 -> VENC Chn 0
+         * 第 2 路 (i=1): 绑定 VPSS Grp 1 -> VENC Chn 1
+         * 注意：这里假设 vpss_chn[i] 都是 0 (VPSS 的主码流输出)
+         */
+        ret = sample_comm_vpss_bind_venc(i, venc_vpss_chn->vpss_chn[i], venc_vpss_chn->venc_chn[i]);
+        if (ret != TD_SUCCESS)
+        {
+            sample_print("bind vpss grp %d to venc chn %d failed for %#x!\n", i, venc_vpss_chn->venc_chn[i], ret);
+            return ret;
+        }
     }
 
-    ret = sample_comm_vpss_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[0], venc_vpss_chn->venc_chn[0]);
-    if (ret != TD_SUCCESS)
-    {
-        sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
-        goto EXIT_VENC_H265_STOP;
-   }
-//      /* encode h.264 */
-//
-//    h264_chn_param = &(chn_param[1]);
-//    if ((ret = sample_comm_venc_start(venc_vpss_chn->venc_chn[1], h264_chn_param)) != TD_SUCCESS)
-//    {
-//        sample_print("Venc Start failed for %#x!\n", ret);
-//        goto EXIT_VENC_H264_UnBind;
-//    }
-//
-//    ret = sample_comm_vpss_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[1], venc_vpss_chn->venc_chn[1]);
-//    if (ret != TD_SUCCESS)
-//    {
-//        sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
-//        goto EXIT_VENC_H264_STOP;
-//     }
+    /* 4. 初始化 RTSP Server */
+    
+    /* 路 0: Port 554 */
     rtsp_handle[0].g_rtsplive = create_rtsp_demo(554);
     rtsp_handle[0].channel_num = venc_vpss_chn->venc_chn[0];
-//    rtsp_handle[1].g_rtsplive = create_rtsp_demo(8554);
-//    rtsp_handle[1].channel_num = venc_vpss_chn->venc_chn[1];
-    char rtsp_name[20];
-    for (i = 0; i < CHN_NUM_MAX; i++)
+
+    /* 路 1: Port 8554 (取消注释) */
+    rtsp_handle[1].g_rtsplive = create_rtsp_demo(8554);
+    rtsp_handle[1].channel_num = venc_vpss_chn->venc_chn[1];
+
+    /* 5. 创建 RTSP Session */
+    char rtsp_name[32];
+    for (i = 0; i < start_chn_num; i++)
     {
-	sprintf(rtsp_name, "%s%d","/stream",i);
-	printf("========rtsp_name=============%s\n",rtsp_name);
+        /* 生成流名字: /stream0, /stream1 */
+        sprintf(rtsp_name, "%s%d", "/stream", i);
+        printf("========rtsp_name=============%s (Port: %d)\n", rtsp_name, (i==0)?554:8554);
+
         if (chn_param[i].type == OT_PT_H265)
             rtsp_handle[i].session = create_rtsp_session(rtsp_handle[i].g_rtsplive, rtsp_name, 1);
         else
             rtsp_handle[i].session = create_rtsp_session(rtsp_handle[i].g_rtsplive, rtsp_name, 0);
     }
 
+    /* 6. 启动取流线程 */
     pthread_create(&venc_audio_pthread[3], 0, VENC_GetVencStreamProc, NULL);
     pthread_detach(venc_audio_pthread[3]);
 
-
-#if 0
-        printf("press s to save video\n");
-    char save = getchar();
-    if (save == 's'){
-
-    /******************************************
-     stream save process
-    ******************************************/
-    if ((ret = sample_comm_venc_start_get_stream(venc_vpss_chn->venc_chn, CHN_NUM_MAX)) != TD_SUCCESS) {
-        sample_print("Start Venc failed!\n");
-        goto EXIT_VENC_H264_UnBind;
-    }
-    }
-#endif
+    /* 等待循环 (保持原样) */
     while (EXIT_MODE_X)
     {
-	    usleep(500*1000);
+        usleep(500 * 1000);
     }
 
-     printf("============end rtsp==============\n");
-    // End_Rtsp = 0;
+    printf("============end rtsp==============\n");
 
-    //return TD_SUCCESS;
-
-EXIT_VENC_H264_UnBind:
-    sample_comm_vpss_un_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[1], venc_vpss_chn->venc_chn[1]);
-    // sample_comm_vpss_un_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[0], venc_vpss_chn->venc_chn[0]);
-EXIT_VENC_H264_STOP:
-    sample_comm_venc_stop(venc_vpss_chn->venc_chn[1]);
-    //sample_comm_venc_stop(venc_vpss_chn->venc_chn[0]);
-// EXIT_VENC_H265_UnBind:
-//     sample_comm_vpss_un_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[0], venc_vpss_chn->venc_chn[0]);
-EXIT_VENC_H265_STOP:
-    sample_comm_venc_stop(venc_vpss_chn->venc_chn[0]);
+    /* 7. 退出前的解绑与停止 (双路) */
+    for (i = start_chn_num - 1; i >= 0; i--)
+    {
+        // 解绑 VPSS Grp i -> VENC Chn i
+        sample_comm_vpss_un_bind_venc(i, venc_vpss_chn->vpss_chn[i], venc_vpss_chn->venc_chn[i]);
+        // 停止 VENC Chn i
+        sample_comm_venc_stop(venc_vpss_chn->venc_chn[i]);
+    }
 
     return ret;
-    // return NULL;
 }
+
+//static td_s32 sample_venc_normal_start_encode(ot_vpss_grp vpss_grp, sample_venc_vpss_chn *venc_vpss_chn)
+//{
+//    td_s32 ret;
+//    ot_venc_gop_mode gop_mode;
+//    ot_venc_gop_attr gop_attr;
+//    sample_comm_venc_chn_param chn_param[CHN_NUM_MAX] = {0};
+//    sample_comm_venc_chn_param *h265_chn_param = TD_NULL;
+//    sample_comm_venc_chn_param *h264_chn_param = TD_NULL;
+//    int i;
+//
+//    if (get_gop_mode(&gop_mode) != TD_SUCCESS)
+//    {
+//        return TD_FAILURE;
+//    }
+//    if ((ret = sample_comm_venc_get_gop_attr(gop_mode, &gop_attr)) != TD_SUCCESS)
+//    {
+//        sample_print("Venc Get GopAttr for %#x!\n", ret);
+//        return ret;
+//    }
+//
+//    sample_venc_set_video_param(chn_param, gop_attr, CHN_NUM_MAX, TD_FALSE);
+//
+//      /* encode h.265 */
+//
+//    h265_chn_param = &(chn_param[0]);
+//    if ((ret = sample_comm_venc_start(venc_vpss_chn->venc_chn[0], h265_chn_param)) != TD_SUCCESS)
+//    {
+//        sample_print("Venc Start failed for %#x!\n", ret);
+//        return ret;
+//    }
+//
+//    ret = sample_comm_vpss_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[0], venc_vpss_chn->venc_chn[0]);
+//    if (ret != TD_SUCCESS)
+//    {
+//        sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
+//        goto EXIT_VENC_H265_STOP;
+//   }
+////      /* encode h.264 */
+////
+////    h264_chn_param = &(chn_param[1]);
+////    if ((ret = sample_comm_venc_start(venc_vpss_chn->venc_chn[1], h264_chn_param)) != TD_SUCCESS)
+////    {
+////        sample_print("Venc Start failed for %#x!\n", ret);
+////        goto EXIT_VENC_H264_UnBind;
+////    }
+////
+////    ret = sample_comm_vpss_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[1], venc_vpss_chn->venc_chn[1]);
+////    if (ret != TD_SUCCESS)
+////    {
+////        sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
+////        goto EXIT_VENC_H264_STOP;
+////     }
+//    rtsp_handle[0].g_rtsplive = create_rtsp_demo(554);
+//    rtsp_handle[0].channel_num = venc_vpss_chn->venc_chn[0];
+////    rtsp_handle[1].g_rtsplive = create_rtsp_demo(8554);
+////    rtsp_handle[1].channel_num = venc_vpss_chn->venc_chn[1];
+//    char rtsp_name[20];
+//    for (i = 0; i < CHN_NUM_MAX; i++)
+//    {
+//	sprintf(rtsp_name, "%s%d","/stream",i);
+//	printf("========rtsp_name=============%s\n",rtsp_name);
+//        if (chn_param[i].type == OT_PT_H265)
+//            rtsp_handle[i].session = create_rtsp_session(rtsp_handle[i].g_rtsplive, rtsp_name, 1);
+//        else
+//            rtsp_handle[i].session = create_rtsp_session(rtsp_handle[i].g_rtsplive, rtsp_name, 0);
+//    }
+//
+//    pthread_create(&venc_audio_pthread[3], 0, VENC_GetVencStreamProc, NULL);
+//    pthread_detach(venc_audio_pthread[3]);
+//
+//
+//#if 0
+//        printf("press s to save video\n");
+//    char save = getchar();
+//    if (save == 's'){
+//
+//    /******************************************
+//     stream save process
+//    ******************************************/
+//    if ((ret = sample_comm_venc_start_get_stream(venc_vpss_chn->venc_chn, CHN_NUM_MAX)) != TD_SUCCESS) {
+//        sample_print("Start Venc failed!\n");
+//        goto EXIT_VENC_H264_UnBind;
+//    }
+//    }
+//#endif
+//    while (EXIT_MODE_X)
+//    {
+//	    usleep(500*1000);
+//    }
+//
+//     printf("============end rtsp==============\n");
+//    // End_Rtsp = 0;
+//
+//    //return TD_SUCCESS;
+//
+//EXIT_VENC_H264_UnBind:
+//    sample_comm_vpss_un_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[1], venc_vpss_chn->venc_chn[1]);
+//    // sample_comm_vpss_un_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[0], venc_vpss_chn->venc_chn[0]);
+//EXIT_VENC_H264_STOP:
+//    sample_comm_venc_stop(venc_vpss_chn->venc_chn[1]);
+//    //sample_comm_venc_stop(venc_vpss_chn->venc_chn[0]);
+//// EXIT_VENC_H265_UnBind:
+////     sample_comm_vpss_un_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[0], venc_vpss_chn->venc_chn[0]);
+//EXIT_VENC_H265_STOP:
+//    sample_comm_venc_stop(venc_vpss_chn->venc_chn[0]);
+//
+//    return ret;
+//    // return NULL;
+//}
 
 td_s32 sample_venc_start_svp_x(ot_vpss_grp vpss_grp, sample_venc_vpss_chn *venc_vpss_chn)
 {

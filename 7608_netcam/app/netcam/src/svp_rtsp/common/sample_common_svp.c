@@ -520,6 +520,32 @@ static td_s32 sample_common_svp_vi_unbind_multi_vpss(td_s32 vpss_grp_cnt, td_s32
     return TD_SUCCESS;
 }
 
+/* * 修改后的函数：支持双路 Sensor 配置 
+ * 注意：调用此函数时，传入的 vi_cfg 必须是一个数组 (sample_vi_cfg vi_cfg[2])
+ */
+static td_s32 sample_common_svp_set_dual_vi_cfg(sample_vi_cfg *vi_cfg, hi_pic_size *pic_type,
+                                                td_u32 pic_type_len, hi_pic_size *ext_pic_size_type, 
+                                                sample_sns_type sns_type)
+{
+    /* * 【核心修改点】
+     * 原代码: sample_comm_vi_get_default_vi_cfg(sns_type, vi_cfg);
+     * 新代码: 调用双路配置函数，它会同时填充 vi_cfg[0] 和 vi_cfg[1]
+     */
+    sample_comm_vi_get_dual_vi_cfg(sns_type, vi_cfg);
+
+    /* 参数合法性检查 (保持不变) */
+    sample_svp_check_exps_return(pic_type_len < OT_VPSS_CHN_NUM,
+                                 TD_FAILURE, SAMPLE_SVP_ERR_LEVEL_ERROR, "pic_type_len is illegal!\n");
+
+    /* * 设置 SVP/NNIE 模型输入所需的图像尺寸 (保持不变)
+     * 注意：这通常用于设置 VPSS 通道 2 的分辨率。
+     * 如果两路 Sensor 分辨率一致，这里设置一次即可通用。
+     */
+    pic_type[2] = *ext_pic_size_type;
+
+    return TD_SUCCESS;
+}
+
 static td_s32 sample_common_svp_set_vi_cfg(sample_vi_cfg *vi_cfg, hi_pic_size *pic_type,
                                            td_u32 pic_type_len, hi_pic_size *ext_pic_size_type, sample_sns_type sns_type)
 {
@@ -653,135 +679,313 @@ void* hnr_tmp()
 //{
 //   sample_acl();
 //}
-
 /*
  * function : Start Vi/Vpss/Venc/Vo
  */
+
 td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
-                                               ot_sample_svp_switch *switch_ptr, hi_pic_size *ext_pic_size_type)
+                                                ot_sample_svp_switch *switch_ptr, hi_pic_size *ext_pic_size_type)
 {
+    /* 1. 变量定义 */
     ot_size pic_size[OT_VPSS_CHN_NUM];
     hi_pic_size pic_type[OT_VPSS_CHN_NUM];
     sample_vo_cfg vo_cfg;
-
     hi_u32 i;
-    ot_vpss_grp vpss_grp[1] = {0};
+    
+    /* 关键：定义两个 VPSS Group */
+    ot_vpss_grp vpss_grp[2] = {0, 1}; 
     const hi_vpss_chn vpss_chn = 0;
     const hi_vo_layer vo_layer = 0;
-    hi_vo_chn vo_chn[4] = {0, 1, 2, 3};     /* 4: max chn num, 0/1/2/3 chn id */
-    const hi_u32 grp_num = 1;
+    hi_vo_chn vo_chn[4] = {0, 1, 2, 3};
+    const hi_u32 grp_num = 2; 
+    const td_s32 vpss_grp_cnt = 2; 
 
-    const td_s32 vpss_grp_cnt = 1;
     td_s32 ret = TD_FAILURE;
     sample_sns_type sns_type = OV_OS08B10_MIPI_8M_30FPS_12BIT;
-    sample_print("sns_type = %d\n",sns_type);
+
+    sample_print("sns_type = %d\n", sns_type);
+
+    /* 2. 参数检查 */
     sample_svp_check_exps_return(vi_cfg == TD_NULL, ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "vi_cfg can't be null\n");
     sample_svp_check_exps_return(switch_ptr == TD_NULL, ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "switch_ptr can't be null\n");
     sample_svp_check_exps_return(ext_pic_size_type == TD_NULL, ret,
                                  SAMPLE_SVP_ERR_LEVEL_ERROR, "ext_pic_size_type can't be null\n");
 
+    /* 获取 VPSS 图片类型 */
     ret = sample_common_svp_get_pic_type_by_sns_type(sns_type, pic_type, OT_VPSS_CHN_NUM);
     sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
                                  "sample_common_svp_get_pic_type_by_sns_type failed!\n");
-    ret = sample_common_svp_set_vi_cfg(vi_cfg, pic_type, OT_VPSS_CHN_NUM, ext_pic_size_type, sns_type);
-    sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
-                                 "sample_common_svp_set_vi_cfg failed,Error:%#x\n", ret);
 
-    /* step  1: Init vb */
+    /* 3. 配置双路 VI 参数 (vi_cfg[0] 和 vi_cfg[1]) */
+    ret = sample_common_svp_set_dual_vi_cfg(vi_cfg, pic_type, OT_VPSS_CHN_NUM, ext_pic_size_type, sns_type);
+    sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
+                                 "sample_common_svp_set_dual_vi_cfg failed,Error:%#x\n", ret);
+
+    /* 4. 初始化 VB */
     ret = sample_common_svp_vb_init(pic_type, pic_size, OT_VPSS_CHN_NUM);
     sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
                                  "Error(%#x),sample_common_svp_vb_init failed!\n", ret);
 
-    /* step 2: Start vi */
-    ret = sample_comm_vi_start_vi(vi_cfg);
+    /* 5. 启动双路 VI */
+    /* 启动 Sensor 0 */
+    ret = sample_comm_vi_start_vi(&vi_cfg[0]);
     sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_1, SAMPLE_SVP_ERR_LEVEL_ERROR,
-                               "Error(%#x),sample_comm_vi_start_vi failed!\n", ret);
+                               "Error(%#x),sample_comm_vi_start_vi [0] failed!\n", ret);
 
-    /* step 3: Bind vpss to vi */
-    ret = sample_common_svp_vi_bind_multi_vpss(vpss_grp_cnt, 1, 1);
+    /* 启动 Sensor 1 */
+    ret = sample_comm_vi_start_vi(&vi_cfg[1]);
+    sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_vi_0, SAMPLE_SVP_ERR_LEVEL_ERROR,
+                               "Error(%#x),sample_comm_vi_start_vi [1] failed!\n", ret);
+
+
+    /* 6. 双路绑定 VI -> VPSS (核心修改点) */
+    /* 请注意：这里补上了第4个参数 0 (vpss_chn) */
+
+    /* 绑定: Sensor 0 (Pipe 0) -> VPSS Group 0 */
+    /* 参数: pipe, vi_chn, vpss_grp, vpss_chn */
+    ret = sample_comm_vi_bind_vpss(vi_cfg[0].bind_pipe.pipe_id[0], 0, vpss_grp[0], 0);
     sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_2, SAMPLE_SVP_ERR_LEVEL_ERROR,
-                               "Error(%#x),sample_common_vi_bind_multi_vpss failed!\n", ret);
+                               "Error(%#x),Bind VI[0]-VPSS[0] failed!\n", ret);
 
-    /* step 4: Start vpss */
+    /* 绑定: Sensor 1 (Pipe 2) -> VPSS Group 1 */
+    /* 参数: pipe, vi_chn, vpss_grp, vpss_chn */
+    ret = sample_comm_vi_bind_vpss(vi_cfg[1].bind_pipe.pipe_id[0], 0, vpss_grp[1], 0);
+    sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_bind_0, SAMPLE_SVP_ERR_LEVEL_ERROR,
+                               "Error(%#x),Bind VI[1]-VPSS[1] failed!\n", ret);
+
+
+    /* 7. 启动 VPSS (双路) */
     ret = sample_common_svp_start_vpss(vpss_grp_cnt, pic_size, OT_VPSS_CHN_NUM);
     sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_3, SAMPLE_SVP_ERR_LEVEL_ERROR,
                                "Error(%#x),sample_common_svp_start_vpss failed!\n", ret);
 
-    /* step 5: Set vi frame, Start Vo */
+
+    /* 8. 启动 VO 并绑定 */
     ret = sample_common_svp_set_and_start_vo(switch_ptr, &vo_cfg);
-        for (i = 0; i < grp_num; i++) {
+    
+    /* 绑定: VPSS -> VO */
+    for (i = 0; i < grp_num; i++) {
         sample_comm_vpss_bind_vo(vpss_grp[i], vpss_chn, vo_layer, vo_chn[i]);
     }
 
-    // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_4, SAMPLE_SVP_ERR_LEVEL_ERROR,
-    //                            "Error(%#x),sample_common_svp_set_vi_frame failed!\n", ret);
-   
-//    pthread_t hnr_thread; 
-//    pthread_create(&hnr_thread, 0, hnr_tmp, NULL);
-//    pthread_detach(hnr_thread);
-
-//    pthread_t acl_thread;
-//    pthread_create(&acl_thread, 0, acl_tmp,NULL);
-//    pthread_detach(acl_thread); 
-    /* step 6: Start Venc */
-  //  ret = sample_common_svp_start_venc(switch_ptr, &vo_cfg);
-  //  sample_venc_vpss_chn venc_vpss_chn[2];
-  //  rtsp_handle_struct rtsp_handle[2];
-  //  venc_vpss_chn.vpss_chn[0] = 0;
-  //  venc_vpss_chn.vpss_chn[1] = 1;
-  //  venc_vpss_chn.venc_chn[0] = 3;
-  //  venc_vpss_chn.venc_chn[1] = 4;
-  //  sample_venc_start_svp_x(0, venc_vpss_chn);
-  //  sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_4, SAMPLE_SVP_ERR_LEVEL_ERROR,
-  //                             "Error(%#x),sample_common_svp_start_vencb failed!\n", ret);
-
     return TD_SUCCESS;
-//end_init_4:
-//     sample_common_svp_stop_vpss(vpss_grp_cnt);
-end_init_3:
-    ret = sample_common_svp_vi_unbind_multi_vpss(vpss_grp_cnt, 1, 1);
-    sample_svp_check_exps_trace(ret != TD_SUCCESS, SAMPLE_SVP_ERR_LEVEL_ERROR, "svp_vi_unbind_multi_vpss failed!\n");
-end_init_2:
-    sample_comm_vi_stop_vi(vi_cfg);
-end_init_1: /*  system exit */
+
+    /* --- 错误处理 / 回滚流程 (必须同样修改 unbind 函数) --- */
+
+end_init_3: /* 解绑 Sensor 1 */
+    sample_comm_vi_unbind_vpss(vi_cfg[1].bind_pipe.pipe_id[0], 0, vpss_grp[1], 0);
+
+end_init_bind_0: /* 解绑 Sensor 0 */
+    sample_comm_vi_unbind_vpss(vi_cfg[0].bind_pipe.pipe_id[0], 0, vpss_grp[0], 0);
+
+end_init_2: /* 停止 VI Dev 1 */
+    sample_comm_vi_stop_vi(&vi_cfg[1]);
+
+end_init_vi_0: /* 停止 VI Dev 0 */
+    sample_comm_vi_stop_vi(&vi_cfg[0]);
+
+end_init_1: /* 退出系统 */
     sample_comm_sys_exit();
-    (td_void) memset_s(vi_cfg, sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
+    (td_void) memset_s(vi_cfg, sizeof(sample_vi_cfg) * 2, 0, sizeof(sample_vi_cfg) * 2); 
     return ret;
 }
 
+//td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
+//                                               ot_sample_svp_switch *switch_ptr, hi_pic_size *ext_pic_size_type)
+//{
+//    ot_size pic_size[OT_VPSS_CHN_NUM];
+//    hi_pic_size pic_type[OT_VPSS_CHN_NUM];
+//    sample_vo_cfg vo_cfg;
+//
+//    hi_u32 i;
+//    ot_vpss_grp vpss_grp[1] = {0};
+//    const hi_vpss_chn vpss_chn = 0;
+//    const hi_vo_layer vo_layer = 0;
+//    hi_vo_chn vo_chn[4] = {0, 1, 2, 3};     /* 4: max chn num, 0/1/2/3 chn id */
+//    const hi_u32 grp_num = 1;
+//
+//    const td_s32 vpss_grp_cnt = 1;
+//    td_s32 ret = TD_FAILURE;
+//    sample_sns_type sns_type = OV_OS08B10_MIPI_8M_30FPS_12BIT;
+//    sample_print("sns_type = %d\n",sns_type);
+//    sample_svp_check_exps_return(vi_cfg == TD_NULL, ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "vi_cfg can't be null\n");
+//    sample_svp_check_exps_return(switch_ptr == TD_NULL, ret, SAMPLE_SVP_ERR_LEVEL_ERROR, "switch_ptr can't be null\n");
+//    sample_svp_check_exps_return(ext_pic_size_type == TD_NULL, ret,
+//                                 SAMPLE_SVP_ERR_LEVEL_ERROR, "ext_pic_size_type can't be null\n");
+//
+//    ret = sample_common_svp_get_pic_type_by_sns_type(sns_type, pic_type, OT_VPSS_CHN_NUM);
+//    sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//                                 "sample_common_svp_get_pic_type_by_sns_type failed!\n");
+//    ret = sample_common_svp_set_vi_cfg(vi_cfg, pic_type, OT_VPSS_CHN_NUM, ext_pic_size_type, sns_type);
+//    sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//                                 "sample_common_svp_set_vi_cfg failed,Error:%#x\n", ret);
+//
+//    /* step  1: Init vb */
+//    ret = sample_common_svp_vb_init(pic_type, pic_size, OT_VPSS_CHN_NUM);
+//    sample_svp_check_exps_return(ret != TD_SUCCESS, ret, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//                                 "Error(%#x),sample_common_svp_vb_init failed!\n", ret);
+//
+//    /* step 2: Start vi */
+//    ret = sample_comm_vi_start_vi(vi_cfg);
+//    sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_1, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//                               "Error(%#x),sample_comm_vi_start_vi failed!\n", ret);
+//
+//    /* step 3: Bind vpss to vi */
+//    ret = sample_common_svp_vi_bind_multi_vpss(vpss_grp_cnt, 1, 1);
+//    sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_2, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//                               "Error(%#x),sample_common_vi_bind_multi_vpss failed!\n", ret);
+//
+//    /* step 4: Start vpss */
+//    ret = sample_common_svp_start_vpss(vpss_grp_cnt, pic_size, OT_VPSS_CHN_NUM);
+//    sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_3, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//                               "Error(%#x),sample_common_svp_start_vpss failed!\n", ret);
+//
+//    /* step 5: Set vi frame, Start Vo */
+//    ret = sample_common_svp_set_and_start_vo(switch_ptr, &vo_cfg);
+//        for (i = 0; i < grp_num; i++) {
+//        sample_comm_vpss_bind_vo(vpss_grp[i], vpss_chn, vo_layer, vo_chn[i]);
+//    }
+//
+//    // sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_4, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//    //                            "Error(%#x),sample_common_svp_set_vi_frame failed!\n", ret);
+//   
+////    pthread_t hnr_thread; 
+////    pthread_create(&hnr_thread, 0, hnr_tmp, NULL);
+////    pthread_detach(hnr_thread);
+//
+////    pthread_t acl_thread;
+////    pthread_create(&acl_thread, 0, acl_tmp,NULL);
+////    pthread_detach(acl_thread); 
+//    /* step 6: Start Venc */
+//  //  ret = sample_common_svp_start_venc(switch_ptr, &vo_cfg);
+//  //  sample_venc_vpss_chn venc_vpss_chn[2];
+//  //  rtsp_handle_struct rtsp_handle[2];
+//  //  venc_vpss_chn.vpss_chn[0] = 0;
+//  //  venc_vpss_chn.vpss_chn[1] = 1;
+//  //  venc_vpss_chn.venc_chn[0] = 3;
+//  //  venc_vpss_chn.venc_chn[1] = 4;
+//  //  sample_venc_start_svp_x(0, venc_vpss_chn);
+//  //  sample_svp_check_exps_goto(ret != TD_SUCCESS, end_init_4, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//  //                             "Error(%#x),sample_common_svp_start_vencb failed!\n", ret);
+//
+//    return TD_SUCCESS;
+////end_init_4:
+////     sample_common_svp_stop_vpss(vpss_grp_cnt);
+//end_init_3:
+//    ret = sample_common_svp_vi_unbind_multi_vpss(vpss_grp_cnt, 1, 1);
+//    sample_svp_check_exps_trace(ret != TD_SUCCESS, SAMPLE_SVP_ERR_LEVEL_ERROR, "svp_vi_unbind_multi_vpss failed!\n");
+//end_init_2:
+//    sample_comm_vi_stop_vi(vi_cfg);
+//end_init_1: /*  system exit */
+//    sample_comm_sys_exit();
+//    (td_void) memset_s(vi_cfg, sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
+//    return ret;
+//}
 /*
  * function : Stop Vi/Vpss/Venc/Vo
  */
+//td_void sample_common_svp_stop_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
+//                                               ot_sample_svp_switch *switch_ptr)
+//{
+//    sample_vo_cfg vo_cfg = {0};
+//    td_s32 ret;
+//    const td_s32 vpss_grp_cnt = 1;
+//
+//    sample_svp_check_exps_return_void(vi_cfg == TD_NULL, SAMPLE_SVP_ERR_LEVEL_ERROR, "vi_cfg can't be null\n");
+//    sample_svp_check_exps_return_void(switch_ptr == TD_NULL, SAMPLE_SVP_ERR_LEVEL_ERROR, "switch_ptr can't be null\n");
+//
+//    if (switch_ptr->is_venc_open == TD_TRUE)
+//    {
+//        sample_comm_venc_stop_get_stream(1);
+//        sample_comm_venc_stop(0);
+//    }
+//
+//    if (switch_ptr->is_vo_open == TD_TRUE)
+//    {
+//        (td_void) sample_common_svp_get_def_vo_cfg(&vo_cfg);
+//        sample_common_svp_stop_vo(&vo_cfg);
+//    }
+//
+//    ret = sample_common_svp_vi_unbind_multi_vpss(vpss_grp_cnt, 1, 1);
+//    sample_svp_check_exps_trace(ret != TD_SUCCESS, SAMPLE_SVP_ERR_LEVEL_ERROR,
+//                                "sample_common_svp_vi_unbind_multi_vpss failed\n");
+//    sample_common_svp_stop_vpss(vpss_grp_cnt);
+//    sample_comm_vi_stop_vi(vi_cfg);
+//    sample_comm_sys_exit();
+//
+//    (td_void) memset_s(vi_cfg, sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
+//}
+
+/* 请将此函数添加到 sample_comm_vi.c 中 */
+hi_s32 sample_comm_vi_unbind_vpss(hi_vi_pipe vi_pipe, hi_vi_chn vi_chn, hi_vpss_grp vpss_grp, hi_vpss_chn vpss_chn)
+{
+    hi_mpp_chn src_chn;
+    hi_mpp_chn dst_chn;
+
+    src_chn.mod_id    = HI_ID_VI;
+    src_chn.dev_id    = vi_pipe;
+    src_chn.chn_id    = vi_chn;
+
+    dst_chn.mod_id    = HI_ID_VPSS;
+    dst_chn.dev_id    = vpss_grp;
+    dst_chn.chn_id    = vpss_chn;
+
+    return hi_mpi_sys_unbind(&src_chn, &dst_chn);
+}
+
 td_void sample_common_svp_stop_vi_vpss_venc_vo(sample_vi_cfg *vi_cfg,
                                                ot_sample_svp_switch *switch_ptr)
 {
     sample_vo_cfg vo_cfg = {0};
     td_s32 ret;
-    const td_s32 vpss_grp_cnt = 1;
+    /* 【修改点1】将 VPSS Group 数量改为 2 */
+    const td_s32 vpss_grp_cnt = 2;
 
     sample_svp_check_exps_return_void(vi_cfg == TD_NULL, SAMPLE_SVP_ERR_LEVEL_ERROR, "vi_cfg can't be null\n");
     sample_svp_check_exps_return_void(switch_ptr == TD_NULL, SAMPLE_SVP_ERR_LEVEL_ERROR, "switch_ptr can't be null\n");
 
+    /* VENC 停止逻辑保持不变 (如果有开启) */
     if (switch_ptr->is_venc_open == TD_TRUE)
     {
         sample_comm_venc_stop_get_stream(1);
         sample_comm_venc_stop(0);
     }
 
+    /* VO 停止逻辑保持不变 */
     if (switch_ptr->is_vo_open == TD_TRUE)
     {
         (td_void) sample_common_svp_get_def_vo_cfg(&vo_cfg);
         sample_common_svp_stop_vo(&vo_cfg);
     }
 
-    ret = sample_common_svp_vi_unbind_multi_vpss(vpss_grp_cnt, 1, 1);
-    sample_svp_check_exps_trace(ret != TD_SUCCESS, SAMPLE_SVP_ERR_LEVEL_ERROR,
-                                "sample_common_svp_vi_unbind_multi_vpss failed\n");
+    /* 【修改点2】手动解绑两路 VI-VPSS */
+    /* 废弃原有的 sample_common_svp_vi_unbind_multi_vpss，改为精确手动解绑 */
+    
+    /* 解绑 Sensor 0: Pipe[0] -> VPSS[0] */
+    /* 参数: pipe_id, vi_chn(0), vpss_grp(0), vpss_chn(0) */
+	ret = sample_comm_vi_unbind_vpss(vi_cfg[0].bind_pipe.pipe_id[0], 0, 0, 0);
+    if (ret != TD_SUCCESS) {
+        printf("Error: sample_comm_vi_unbind_vpss(Sensor 0) failed, ret=%#x\n", ret);
+    }
+    /* 解绑 Sensor 1: Pipe[0] -> VPSS[1] */
+    /* 注意：vi_cfg[1] 的 pipe_id 已经是偏移后的值 (如 Pipe 2) */
+	ret = sample_comm_vi_unbind_vpss(vi_cfg[1].bind_pipe.pipe_id[0], 0, 1, 0);
+    if (ret != TD_SUCCESS) {
+        printf("Error: sample_comm_vi_unbind_vpss(Sensor 1) failed, ret=%#x\n", ret);
+    }
+    /* 【修改点3】停止 2 个 VPSS Group */
     sample_common_svp_stop_vpss(vpss_grp_cnt);
-    sample_comm_vi_stop_vi(vi_cfg);
+
+    /* 【修改点4】分别停止两路 VI */
+    /* 停止 Sensor 1 (Dev 2) */
+    sample_comm_vi_stop_vi(&vi_cfg[1]);
+    /* 停止 Sensor 0 (Dev 0) */
+    sample_comm_vi_stop_vi(&vi_cfg[0]);
+
     sample_comm_sys_exit();
 
-    (td_void) memset_s(vi_cfg, sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
+    /* 【修改点5】清空两个结构体的内存 */
+    (td_void) memset_s(vi_cfg, sizeof(sample_vi_cfg) * 2, 0, sizeof(sample_vi_cfg) * 2);
 }
 
 /*

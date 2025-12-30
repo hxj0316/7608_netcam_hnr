@@ -253,6 +253,9 @@ td_s32 sample_common_svp_start_vi_vpss_venc_vo(sample_vi_cfg *vi_config,
 td_void sample_common_svp_stop_vi_vpss_venc_vo(sample_vi_cfg *vi_config,
     ot_sample_svp_switch *switch_ptr);
 
+/* 在 sample_comm.h 中添加或修改声明 */
+hi_s32 sample_comm_vi_unbind_vpss(hi_vi_pipe vi_pipe, hi_vi_chn vi_chn, hi_vpss_grp vpss_grp, hi_vpss_chn vpss_chn);
+
 /*
  * Load bin
  */

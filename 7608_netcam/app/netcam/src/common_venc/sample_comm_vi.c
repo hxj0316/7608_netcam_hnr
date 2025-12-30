@@ -963,6 +963,82 @@ hi_void sample_comm_vi_init_pipe_info(sample_sns_type sns_type, const hi_size *s
     }
 }
 
+/*
+ * 配置双路 VI 参数 (Dev0 + Dev2)
+ * 硬件连接: 
+ * - Sensor 0 (Dev 0): 接 I2C 2
+ * - Sensor 1 (Dev 2): 接 I2C 3
+ * 参数 vi_cfg: 必须是一个至少包含2个元素的数组，例如 sample_vi_cfg vi_cfg[2]
+ */
+hi_void sample_comm_vi_get_dual_vi_cfg(sample_sns_type sns_type, sample_vi_cfg vi_cfg[])
+{
+    hi_s32 i;
+    
+    // =========================================================
+    // 1. 配置第一路 (Dev 0, Pipe 0/1) -> 对应 Sensor 0 (I2C 2)
+    // =========================================================
+    (hi_void)memset_s(&vi_cfg[0], sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
+
+    /* Sensor Info: 显式设置总线 ID */
+    sample_comm_vi_get_default_sns_info(sns_type, &vi_cfg[0].sns_info);
+    vi_cfg[0].sns_info.bus_id = 2;       // Sensor 0 接 I2C 2
+    vi_cfg[0].sns_info.sns_rst_src = 0;  // 第一路复位信号通常为 index 0
+    vi_cfg[0].sns_info.sns_clk_src = 0;  // 第一路时钟信号通常为 index 0
+
+    /* MIPI Info: 使用 by_dev_id 开启拆分模式 (Dev 0) */
+    sample_comm_vi_get_mipi_info_by_dev_id(sns_type, 0, &vi_cfg[0].mipi_info);
+
+    /* Dev Info: 默认 vi_dev = 0 */
+    sample_comm_vi_get_default_dev_info(sns_type, &vi_cfg[0].dev_info);
+
+    /* Bind & Group Info */
+    sample_comm_vi_get_default_bind_info(sns_type, &vi_cfg[0].bind_pipe);
+    sample_comm_vi_get_default_grp_info(sns_type, &vi_cfg[0].grp_info);
+    
+    /* Pipe Info */
+    sample_comm_vi_get_default_pipe_info(sns_type, &vi_cfg[0].bind_pipe, vi_cfg[0].pipe_info);
+
+
+    // =========================================================
+    // 2. 配置第二路 (Dev 2, Pipe 2/3) -> 对应 Sensor 1 (I2C 3)
+    // =========================================================
+    (hi_void)memset_s(&vi_cfg[1], sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
+
+    /* Sensor Info: 显式设置总线 ID */
+    sample_comm_vi_get_default_sns_info(sns_type, &vi_cfg[1].sns_info);
+    vi_cfg[1].sns_info.bus_id = 3;       // Sensor 1 接 I2C 3
+    vi_cfg[1].sns_info.sns_rst_src = 1;  // 第二路复位信号通常为 index 1
+    vi_cfg[1].sns_info.sns_clk_src = 1;  // 第二路时钟信号通常为 index 1
+
+    /* MIPI Info: 使用 by_dev_id 开启拆分模式 (Dev 2) */
+    sample_comm_vi_get_mipi_info_by_dev_id(sns_type, 2, &vi_cfg[1].mipi_info);
+
+    /* Dev Info: 强制修改 vi_dev = 2 */
+    sample_comm_vi_get_default_dev_info(sns_type, &vi_cfg[1].dev_info);
+    vi_cfg[1].dev_info.vi_dev = 2;       // 【关键】指定为 Dev 2
+
+    /* Bind Info: Pipe ID 偏移 */
+    /* 假设第一路占用 Pipe 0 (可能还有 Pipe 1)，这里偏移 2 避开 */
+    sample_comm_vi_get_default_bind_info(sns_type, &vi_cfg[1].bind_pipe);
+    for (i = 0; i < vi_cfg[1].bind_pipe.pipe_num; i++) {
+        vi_cfg[1].bind_pipe.pipe_id[i] += 2; 
+    }
+
+    /* Group Info: Pipe ID 和 Group ID 偏移 */
+    sample_comm_vi_get_default_grp_info(sns_type, &vi_cfg[1].grp_info);
+    vi_cfg[1].grp_info.fusion_grp[0] = 1; // Group 1
+    for (i = 0; i < vi_cfg[1].grp_info.grp_num; i++) {
+        vi_cfg[1].grp_info.fusion_grp_attr[i].pipe_id[0] += 2; 
+    }
+
+    /* Pipe Info */
+    sample_comm_vi_get_default_pipe_info(sns_type, &vi_cfg[1].bind_pipe, vi_cfg[1].pipe_info);
+    
+    sample_print("Dual VI Configured:\n");
+    sample_print("  - Sensor 0: I2C %d, Dev 0\n", vi_cfg[0].sns_info.bus_id);
+    sample_print("  - Sensor 1: I2C %d, Dev 2\n", vi_cfg[1].sns_info.bus_id);
+}
+
 hi_void sample_comm_vi_get_default_vi_cfg(sample_sns_type sns_type, sample_vi_cfg *vi_cfg)
 {
     (hi_void)memset_s(vi_cfg, sizeof(sample_vi_cfg), 0, sizeof(sample_vi_cfg));
