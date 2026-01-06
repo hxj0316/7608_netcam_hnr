@@ -655,7 +655,7 @@ static td_void sample_set_venc_vpss_chn(sample_venc_vpss_chn *venc_vpss_chn)
 
     for (i = 0; i < CHN_NUM_MAX; i++)
     {
-        venc_vpss_chn->vpss_chn[i] = i;
+        venc_vpss_chn->vpss_chn[i] = 1;
         venc_vpss_chn->venc_chn[0] = 3;
         venc_vpss_chn->venc_chn[1] = 4;
     }
@@ -1381,7 +1381,7 @@ void rtsp_reboot()
     int retval;
     printf("=================rtsp reboot===================\n");
     printf("=================rtsp reboot===================\n");
-    printf("l=================rtsp reboot===================\n");
+    printf("=================rtsp reboot===================\n");
     End_Rtsp = 0;
     EXIT_MODE_X = 0;
     new_system_call("pkill udhcpc");
