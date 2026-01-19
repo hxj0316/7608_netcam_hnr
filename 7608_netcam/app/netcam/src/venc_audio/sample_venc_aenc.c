@@ -832,12 +832,12 @@ static td_s32 sample_venc_normal_start_encode(ot_vpss_grp vpss_grp, sample_venc_
         return ret;
     }
 
-    ret = sample_comm_vpss_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[0], venc_vpss_chn->venc_chn[0]);
-    if (ret != TD_SUCCESS)
-    {
-        sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
-        goto EXIT_VENC_H265_STOP;
-   }
+//    ret = sample_comm_vpss_bind_venc(vpss_grp, venc_vpss_chn->vpss_chn[0], venc_vpss_chn->venc_chn[0]);
+//    if (ret != TD_SUCCESS)
+//    {
+//        sample_print("sample_comm_vpss_bind_venc failed for %#x!\n", ret);
+//        goto EXIT_VENC_H265_STOP;
+//  }
 //      /* encode h.264 */
 //
 //    h264_chn_param = &(chn_param[1]);
