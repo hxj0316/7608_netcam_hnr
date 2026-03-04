@@ -801,38 +801,203 @@ static int get_stream_from_one_channl(int s_LivevencChn, rtsp_demo_handle g_rtsp
 //    return NULL;
 //}
 
+#define MAX_VENC_PACK_COUNT 64  /* 预估一帧最大的pack数量，通常远小于此值 */
+
 td_void *VENC_GetVencStreamProc(td_void *p)
 {
-    td_s32 ret = 0;
-    int i;
-    /* 定义要处理的路数 */
-    const int process_chn_num = 2; 
-
-    printf("=========chn 0 = %d\n", rtsp_handle[0].channel_num);
-    printf("=========chn 1 = %d\n", rtsp_handle[1].channel_num);
-
-    sdk_sys_thread_set_name("VENC_GetVencStreamProc");
+    td_s32 i;
+    td_s32 ret;
+    int venc_fds[2];     // 存储两个通道的文件句柄
+    int max_fd = 0;
+    fd_set read_fds;
+    struct timeval TimeoutVal;
     
+    ot_venc_chn_status stStat;
+    ot_venc_stream stStream;
+    ot_venc_pack *pPackBuffer = NULL;
+    
+    // 线程命名，方便调试
+    sdk_sys_thread_set_name("VENC_GetStream_Opt");
+
+    /* 1. 预分配内存：避免在循环中频繁malloc/free导致的抖动 */
+    pPackBuffer = (ot_venc_pack *)malloc(sizeof(ot_venc_pack) * MAX_VENC_PACK_COUNT);
+    if (pPackBuffer == NULL)
+    {
+        printf("Fatal Error: Malloc venc pack buffer failed!\n");
+        return NULL;
+    }
+
+    /* 2. 获取所有通道的 FD */
+    // 注意：这里假设 rtsp_handle 已经在外部初始化完成
+    for (i = 0; i < 2; i++)
+    {
+        if (rtsp_handle[i].g_rtsplive && rtsp_handle[i].session)
+        {
+            venc_fds[i] = ss_mpi_venc_get_fd(rtsp_handle[i].channel_num);
+            if (venc_fds[i] > max_fd)
+            {
+                max_fd = venc_fds[i];
+            }
+            printf("VENC Chn[%d] FD: %d\n", rtsp_handle[i].channel_num, venc_fds[i]);
+        }
+        else
+        {
+            venc_fds[i] = -1; // 标记无效句柄
+        }
+    }
+
+    if (max_fd <= 0)
+    {
+        printf("Error: No valid VENC FDs found! Thread exit.\n");
+        free(pPackBuffer);
+        return NULL;
+    }
+
     while (End_Rtsp)
     {
-        /* 修改循环次数：从 0 到 1 (共2路) */
-        for (i = 0; i < process_chn_num; i++)
+        /* 3. 重新装填 fd_set */
+        FD_ZERO(&read_fds);
+        for (i = 0; i < 2; i++)
         {
-            /* 确保句柄有效 */
-            if (rtsp_handle[i].g_rtsplive == NULL || rtsp_handle[i].session == NULL) {
-                continue;
+            if (venc_fds[i] != -1)
+            {
+                FD_SET(venc_fds[i], &read_fds);
             }
-
-            ret = get_stream_from_one_channl(rtsp_handle[i].channel_num, rtsp_handle[i].g_rtsplive,
-                                             rtsp_handle[i].session);
-            if (ret < 0)
-                continue;
         }
-        /* 建议增加短暂休眠防止 CPU 占用过高，如果 get_stream 内部无阻塞 */
-       usleep(1000); 
+
+        /* 4. 设置超时时间 */
+        TimeoutVal.tv_sec = 2;
+        TimeoutVal.tv_usec = 0;
+
+        /* 5. 核心优化：同时监听两路，谁有数据处理谁 */
+        ret = select(max_fd + 1, &read_fds, NULL, NULL, &TimeoutVal);
+
+        if (ret < 0)
+        {
+            printf("VENC select failed!\n");
+            break;
+        }
+        else if (ret == 0)
+        {
+            // 超时无数据，继续循环
+            continue;
+        }
+
+        /* 6. 遍历检查哪个通道有事件 */
+        for (i = 0; i < 2; i++)
+        {
+            if (venc_fds[i] != -1 && FD_ISSET(venc_fds[i], &read_fds))
+            {
+                int chn = rtsp_handle[i].channel_num;
+
+                // 查询帧状态
+                ret = ss_mpi_venc_query_status(chn, &stStat);
+                if (ret != TD_SUCCESS)
+                {
+                    printf("ss_mpi_venc_query_status chn[%d] failed with %#x!\n", chn, ret);
+                    continue;
+                }
+
+                if (stStat.cur_packs == 0)
+                {
+                    continue; 
+                }
+
+                // 安全检查：如果硬件返回的包数量超过预分配内存，则需要处理（极少发生）
+                if (stStat.cur_packs > MAX_VENC_PACK_COUNT)
+                {
+                    printf("Error: Frame packs (%d) exceed buffer size (%d)!\n", stStat.cur_packs, MAX_VENC_PACK_COUNT);
+                    // 这种情况下由于没有取流，可能会丢帧，但保护了内存不越界
+                    continue; 
+                }
+
+                // 绑定预分配的内存
+                stStream.pack = pPackBuffer;
+                stStream.pack_cnt = stStat.cur_packs;
+
+                // 获取码流
+                ret = ss_mpi_venc_get_stream(chn, &stStream, TD_TRUE);
+                if (TD_SUCCESS == ret)
+                {
+                    // 发送逻辑
+                    int j;
+                    for (j = 0; j < stStream.pack_cnt; j++)
+                    {
+                        unsigned char *pStreamData = (unsigned char *)stStream.pack[j].addr + stStream.pack[j].offset;
+                        int nSize = stStream.pack[j].len - stStream.pack[j].offset;
+
+                        if (rtsp_handle[i].g_rtsplive)
+                        {
+                            // 注意：网络发送可能会阻塞，建议后续将其改为放入队列，由独立发送线程处理
+                            rtsp_sever_tx_video(rtsp_handle[i].g_rtsplive, 
+                                                rtsp_handle[i].session, 
+                                                pStreamData, 
+                                                nSize, 
+                                                stStream.pack[j].pts);
+                        }
+                    }
+
+                    // 释放码流
+                    ret = ss_mpi_venc_release_stream(chn, &stStream);
+                    if (TD_SUCCESS != ret)
+                    {
+                        printf("ss_mpi_venc_release_stream chn[%d] failed with %#x!\n", chn, ret);
+                    }
+                }
+                else
+                {
+                    // 获取失败 (极少见，可能是buffer刚被覆盖)
+                    // printf("ss_mpi_venc_get_stream failed: %#x\n", ret);
+                }
+            }
+        }
+        /* 此处不需要 usleep(1000)。
+           select 机制保证了：
+           1. 无数据时：自动休眠（不占CPU）
+           2. 有数据时：立即唤醒（最低延时）
+        */
     }
+
+    /* 退出清理 */
+    if (pPackBuffer)
+    {
+        free(pPackBuffer);
+        pPackBuffer = NULL;
+    }
+    printf("========== VENC Stream Thread Exit ==========\n");
     return NULL;
 }
+
+//td_void *VENC_GetVencStreamProc(td_void *p)
+//{
+//    td_s32 ret = 0;
+//    int i;
+//    /* 定义要处理的路数 */
+//    const int process_chn_num = 2; 
+//
+//    printf("=========chn 0 = %d\n", rtsp_handle[0].channel_num);
+//    printf("=========chn 1 = %d\n", rtsp_handle[1].channel_num);
+//
+//    sdk_sys_thread_set_name("VENC_GetVencStreamProc");
+//    
+//    while (End_Rtsp)
+//    {
+//        /* 修改循环次数：从 0 到 1 (共2路) */
+//        for (i = 0; i < process_chn_num; i++)
+//        {
+//            /* 确保句柄有效 */
+//            if (rtsp_handle[i].g_rtsplive == NULL || rtsp_handle[i].session == NULL) {
+//                continue;
+//            }
+//
+//            ret = get_stream_from_one_channl(rtsp_handle[i].channel_num, rtsp_handle[i].g_rtsplive,
+//                                             rtsp_handle[i].session);
+//            if (ret < 0)
+//                continue;
+//        }
+//    }
+//    return NULL;
+//}
 
 static td_s32 sample_venc_normal_start_encode(ot_vpss_grp vpss_grp_ignored, sample_venc_vpss_chn *venc_vpss_chn)
 {
@@ -860,6 +1025,7 @@ static td_s32 sample_venc_normal_start_encode(ot_vpss_grp vpss_grp_ignored, samp
     /* 3. 循环启动两路 VENC 并绑定对应的 VPSS */
     for (i = 0; i < start_chn_num; i++)
     {
+	chn_param[i].gop_attr.gop_mode = OT_VENC_GOP_MODE_NORMAL_P;
         venc_param = &(chn_param[i]); // 使用第 i 路的配置
 
         /* 3.1 启动 VENC 通道 */
@@ -911,6 +1077,43 @@ static td_s32 sample_venc_normal_start_encode(ot_vpss_grp vpss_grp_ignored, samp
     /* 6. 启动取流线程 */
     pthread_create(&venc_audio_pthread[3], 0, VENC_GetVencStreamProc, NULL);
     pthread_detach(venc_audio_pthread[3]);
+
+/* ========================================================== */
+    /* === [新增优化] 强制 VPSS 低延迟配置 (Depth=0 + LowDelay) === */
+    /* ========================================================== */
+    {
+        int grp_id, chn_id;
+        td_s32 ret_opt;
+        
+        // 针对所有使用的 VPSS Group (0 和 1)
+        for (grp_id = 0; grp_id < start_chn_num; grp_id++) 
+        {
+             // 针对该 Group 下连接 VENC 的 Channel (通常是 0)
+             chn_id = venc_vpss_chn->vpss_chn[grp_id]; 
+
+             // 1. 强制将 Depth 设为 0 (消除 33ms 缓冲)
+             ot_vpss_chn_attr st_vpss_attr;
+             ret_opt = ss_mpi_vpss_get_chn_attr(grp_id, chn_id, &st_vpss_attr);
+             if (ret_opt == TD_SUCCESS) {
+                 st_vpss_attr.depth = 0; // 强制改为 0
+                 ss_mpi_vpss_set_chn_attr(grp_id, chn_id, &st_vpss_attr);
+                 printf("[Optimization] Set VPSS Grp%d Chn%d Depth to 0.\n", grp_id, chn_id);
+             }
+
+             // 2. 开启 VPSS LowDelay (流水线模式，大幅降低延迟)
+             ot_low_delay_info st_low_delay;
+             ret_opt = ss_mpi_vpss_get_low_delay_attr(grp_id, chn_id, &st_low_delay);
+             if (ret_opt == TD_SUCCESS) {
+                 st_low_delay.enable = TD_TRUE;  // 开启
+                 st_low_delay.line_cnt = 16;     // 攒够16行就发给VENC，不用等全图
+                 ss_mpi_vpss_set_low_delay_attr(grp_id, chn_id, &st_low_delay);
+                 printf("[Optimization] Enabled VPSS LowDelay for Grp%d Chn%d (Lines=16).\n", grp_id, chn_id);
+             } else {
+                 printf("[Warning] Get VPSS LowDelay Attr failed: %#x\n", ret_opt);
+             }
+        }
+    }
+    /* ==================== [优化结束] ========================== */
 
     /* 等待循环 (保持原样) */
     while (EXIT_MODE_X)

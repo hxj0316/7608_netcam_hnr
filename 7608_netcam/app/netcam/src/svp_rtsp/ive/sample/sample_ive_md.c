@@ -844,6 +844,7 @@ static void* sample_ivs_md_proc_thread(void *args)
 
     sample_svp_check_exps_return(md_ptr == TD_NULL, TD_NULL, SAMPLE_SVP_ERR_LEVEL_ERROR, "md_inf_ptr null\n");
 
+    ot_ivs_md_destroy_chn(hld.md_chn);
     /* Create MD Channel - 使用各自独立的句柄 */
     ret = ot_ivs_md_create_chn(hld.md_chn, &(md_ptr->md_attr));
     sample_svp_check_exps_return(ret != TD_SUCCESS, TD_NULL, SAMPLE_SVP_ERR_LEVEL_ERROR, "ot_ivs_md_create_chn fail\n");
